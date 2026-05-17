@@ -100,6 +100,29 @@ describe("publisherTick", () => {
     expect(r.attempted).toBe(0);
   });
 
+  it("does NOT republish an ad that was rejected after staging (race condition)", async () => {
+    const { campaign, audience, asset } = await seedPending();
+    const ad = await createDraftAd({
+      campaignId: campaign.id, audienceId: audience.id, assetId: asset.id,
+      copyHeadline: "h", copyPrimaryText: "p", copyBody: "",
+    });
+    await db.update(ads).set({
+      status: "pending",
+      publishAt: new Date(Date.now() - 1000),
+    }).where(eq(ads.id, ad.id));
+
+    // Simulate the operator rejecting between staging and tick fire
+    await db.update(ads).set({ status: "rejected" }).where(eq(ads.id, ad.id));
+
+    const r = await publisherTick();
+    // The query filters status='pending' so it shouldn't even attempt — but make sure
+    // it definitively doesn't end up published.
+    const [fresh] = await db.select().from(ads).where(eq(ads.id, ad.id));
+    expect(fresh.status).toBe("rejected");
+    expect(fresh.fbAdId).toBeNull();
+    expect(r.published).toBe(0);
+  });
+
   it("publishes multiple pending ads, returns counts", async () => {
     const { campaign, audience, asset } = await seedPending();
     const ad1 = await createDraftAd({
