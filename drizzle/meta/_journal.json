@@ -85,6 +85,13 @@
       "when": 1779057032167,
       "tag": "0011_rich_shadow_king",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1779057619215,
+      "tag": "0012_famous_wither",
+      "breakpoints": true
     }
   ]
 }
