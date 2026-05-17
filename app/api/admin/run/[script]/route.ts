@@ -3,12 +3,13 @@ import { currentUser } from "@/lib/auth/current-user";
 import { pullDailyMetrics } from "@/lib/metrics/pull";
 import { runBanditStep } from "@/lib/bandit/step";
 import { publisherTick } from "@/lib/publisher/tick";
+import { runDailyLoop } from "@/lib/loop/daily";
 import { yesterdayISO } from "@/scripts/_shared";
 
-type Script = "metrics-pull" | "bandit-step" | "publish-tick";
+type Script = "metrics-pull" | "bandit-step" | "publish-tick" | "daily";
 
 function isScript(s: string): s is Script {
-  return s === "metrics-pull" || s === "bandit-step" || s === "publish-tick";
+  return s === "metrics-pull" || s === "bandit-step" || s === "publish-tick" || s === "daily";
 }
 
 export async function POST(req: Request, ctx: { params: Promise<{ script: string }> }) {
@@ -37,6 +38,10 @@ export async function POST(req: Request, ctx: { params: Promise<{ script: string
     }
     if (script === "bandit-step") {
       const r = await runBanditStep({ campaignId, date });
+      return NextResponse.json(r);
+    }
+    if (script === "daily") {
+      const r = await runDailyLoop({ campaignId, yesterday: date });
       return NextResponse.json(r);
     }
   } catch (err) {
