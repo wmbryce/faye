@@ -9,7 +9,7 @@ export function AssetGrid({ assets }: { assets: Asset[] }) {
           {a.kind === "image" ? (
             <img src={a.url} alt={a.label} className="aspect-square object-cover w-full rounded" />
           ) : (
-            <video src={a.url} className="aspect-square object-cover w-full rounded" />
+            <video src={a.url} controls className="aspect-square object-cover w-full rounded" />
           )}
           <p className="mt-2">{a.label || <span className="text-muted-foreground">(no label)</span>}</p>
         </li>

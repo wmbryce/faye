@@ -11,6 +11,7 @@ export async function createReleaseAction(artistId: string, formData: FormData) 
   const title = String(formData.get("title") ?? "").trim();
   const releaseDate = String(formData.get("releaseDate") ?? "").trim();
   if (!spotifyId || !title || !releaseDate) throw new Error("missing fields");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(releaseDate)) throw new Error("releaseDate must be YYYY-MM-DD");
   await createRelease({ artistId, kind, spotifyId, title, releaseDate });
   revalidatePath(`/artists/${artistId}/releases`);
   redirect(`/artists/${artistId}/releases`);

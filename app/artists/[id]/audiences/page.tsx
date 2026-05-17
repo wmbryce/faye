@@ -5,6 +5,7 @@ import { Nav } from "@/components/layout/nav";
 import { getArtist } from "@/lib/artists/queries";
 import { listAudienceSeeds } from "@/lib/audiences/queries";
 import { Button } from "@/components/ui/button";
+import { archiveSeedAction } from "./actions";
 
 export default async function AudiencesPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await currentUser();
@@ -29,6 +30,9 @@ export default async function AudiencesPage({ params }: { params: Promise<{ id: 
               <li key={s.id} className="border border-border rounded-md p-4">
                 <div className="font-medium mb-2">{s.name}</div>
                 <pre className="text-xs overflow-x-auto bg-muted p-3 rounded">{JSON.stringify(s.targetingSpec, null, 2)}</pre>
+                <form action={archiveSeedAction.bind(null, id, s.id)} className="mt-3">
+                  <button type="submit" className="text-xs underline text-muted-foreground hover:text-red-600">Archive</button>
+                </form>
               </li>
             ))}
           </ul>
