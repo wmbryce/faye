@@ -66,6 +66,6 @@ describe("metric schemas", () => {
     await db.insert(adMetricDaily).values({ adId: ad.id, date: "2026-06-02" });
     await expect(
       db.insert(adMetricDaily).values({ adId: ad.id, date: "2026-06-02" })
-    ).rejects.toThrow();
+    ).rejects.toThrow(/unique|duplicate key/i);
   });
 });

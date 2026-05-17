@@ -11,8 +11,10 @@ export type PruneInput = {
 export type PruneRow = { adId: string; action: PruneAction };
 
 /**
- * Per-audience bandit prune. Excluded ads (low_impressions / fraud_suspected)
- * are kept_exploring; ranked ads keep the top K by score, pause the rest.
+ * Per-audience bandit prune.
+ * - `low_impressions` excluded ads → `keep_exploring` (need more data)
+ * - `fraud_suspected` excluded ads → `pause`
+ * - ranked ads: top K by score → `keep`, the rest → `pause`
  */
 export function prune({ scored, K }: PruneInput): PruneRow[] {
   const result: PruneRow[] = [];

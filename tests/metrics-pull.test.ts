@@ -139,9 +139,11 @@ describe("pullDailyMetrics", () => {
     });
     const rows = await db.select().from(adMetricDaily).where(eq(adMetricDaily.date, DATE));
     expect(rows).toHaveLength(2);
-    expect(rows[0].smartlinkClicks).toBe(5);
-    expect(rows[1].smartlinkClicks).toBe(5);
-    expect(rows[0].smartlinkStreams).toBe(2);
+    const byAd = new Map(rows.map((r) => [r.adId, r]));
+    expect(byAd.get(ad1.id)?.smartlinkClicks).toBe(5);
+    expect(byAd.get(ad2.id)?.smartlinkClicks).toBe(5);
+    expect(byAd.get(ad1.id)?.smartlinkStreams).toBe(2);
+    expect(byAd.get(ad2.id)?.smartlinkStreams).toBe(2);
   });
 
   it("preserves null streams when both signals unavailable", async () => {

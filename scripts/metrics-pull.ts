@@ -1,9 +1,9 @@
 import "dotenv/config";
 import { pullDailyMetrics } from "@/lib/metrics/pull";
-import { arg, yesterdayISO, resolveCampaignIds } from "@/scripts/_shared";
+import { dateArgOrYesterday, resolveCampaignIds } from "@/scripts/_shared";
 
 async function main() {
-  const date = arg("date") ?? yesterdayISO();
+  const date = dateArgOrYesterday();
   const ids = await resolveCampaignIds();
 
   if (!ids) {
@@ -12,14 +12,17 @@ async function main() {
   }
 
   console.log(`metrics-pull: ${ids.length} campaigns for date=${date}`);
+  let hadErrors = false;
   for (const id of ids) {
     try {
       const r = await pullDailyMetrics({ campaignId: id, date });
       console.log(`  campaign=${id} ads=${r.adsProcessed} smartlinkClicks=${r.smartlinkClicksTotal} streams=${r.spotifyStreams ?? "—"} (${r.spotifySource})`);
     } catch (err) {
+      hadErrors = true;
       console.error(`  campaign=${id} error=${err instanceof Error ? err.message : String(err)}`);
     }
   }
+  if (hadErrors) process.exitCode = 1;
 }
 
-main().then(() => process.exit(0)).catch((err) => { console.error(err); process.exit(1); });
+main().catch((err) => { console.error(err); process.exit(1); });

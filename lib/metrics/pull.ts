@@ -30,6 +30,32 @@ export type PullDailyMetricsResult = {
   spotifySource: "s4a" | "web_estimate";
 };
 
+/**
+ * Largest-remainder apportionment: distribute `total` across N positions in
+ * proportion to `shares` so per-position integers sum exactly to `total`.
+ * Shares need not be normalized; only their relative magnitudes matter.
+ */
+function apportion(total: number, shares: number[]): number[] {
+  const n = shares.length;
+  if (n === 0) return [];
+  const sumShares = shares.reduce((a, b) => a + b, 0);
+  if (sumShares <= 0) return new Array(n).fill(0);
+  const raw = shares.map((s) => (total * s) / sumShares);
+  const floors = raw.map((x) => Math.floor(x));
+  let remainder = total - floors.reduce((a, b) => a + b, 0);
+  if (remainder <= 0) return floors;
+  // distribute remainder by largest fractional parts, ties broken by index
+  const order = raw
+    .map((x, i) => ({ i, frac: x - Math.floor(x) }))
+    .sort((a, b) => (b.frac - a.frac) || (a.i - b.i));
+  for (const { i } of order) {
+    if (remainder === 0) break;
+    floors[i] += 1;
+    remainder--;
+  }
+  return floors;
+}
+
 export async function pullDailyMetrics(args: PullDailyMetricsArgs): Promise<PullDailyMetricsResult> {
   const [campaign] = await db.select().from(campaigns).where(eq(campaigns.id, args.campaignId)).limit(1);
   if (!campaign) throw new Error("campaign not found");
@@ -69,59 +95,69 @@ export async function pullDailyMetrics(args: PullDailyMetricsArgs): Promise<Pull
   const smartlinkClicksTotal = smartlinkM.clicks;
   const smartlinkStreamsTotal: number | null = smartlinkM.estimatedStreams ?? null;
 
-  // 4. store Spotify release row + apportion
+  // 4. compute per-ad shares + apportion totals using largest-remainder so per-ad
+  // sums equal the campaign totals (Math.round per row drifts).
   const fbClickTotal = Array.from(insightsByAd.values()).reduce((acc, x) => acc + x.linkClicks, 0);
-  await db
-    .insert(releaseMetricDaily)
-    .values({
-      releaseId: release.id,
-      date: args.date,
-      spotifyStreams: spotifyResult.streams,
-      spotifyListeners: spotifyResult.listeners,
-      source: spotifyResult.source,
-    })
-    .onConflictDoUpdate({
-      target: [releaseMetricDaily.releaseId, releaseMetricDaily.date],
-      set: {
+  const shares = publishedAds.map((ad) => {
+    const ins = insightsByAd.get(ad.id) ?? { spendCents: 0, impressions: 0, linkClicks: 0 };
+    if (fbClickTotal > 0) return ins.linkClicks / fbClickTotal;
+    return publishedAds.length > 0 ? 1 / publishedAds.length : 0;
+  });
+  const smartlinkClicksPerAd = apportion(smartlinkClicksTotal, shares);
+  const smartlinkStreamsPerAd = smartlinkStreamsTotal != null
+    ? apportion(smartlinkStreamsTotal, shares)
+    : null;
+
+  // 5. write release + per-ad rows inside a transaction so a per-ad failure
+  // rolls back the whole daily snapshot.
+  await db.transaction(async (tx) => {
+    await tx
+      .insert(releaseMetricDaily)
+      .values({
+        releaseId: release.id,
+        date: args.date,
         spotifyStreams: spotifyResult.streams,
         spotifyListeners: spotifyResult.listeners,
         source: spotifyResult.source,
-      },
-    });
-
-  // 6. per-ad upsert
-  for (const ad of publishedAds) {
-    const ins = insightsByAd.get(ad.id) ?? { spendCents: 0, impressions: 0, linkClicks: 0 };
-    const share = fbClickTotal > 0
-      ? ins.linkClicks / fbClickTotal
-      : publishedAds.length > 0 ? 1 / publishedAds.length : 0;
-    const smartlinkClicks = Math.round(smartlinkClicksTotal * share);
-    const smartlinkStreams = smartlinkStreamsTotal != null
-      ? Math.round(smartlinkStreamsTotal * share)
-      : null;
-
-    await db
-      .insert(adMetricDaily)
-      .values({
-        adId: ad.id,
-        date: args.date,
-        spendCents: ins.spendCents,
-        impressions: ins.impressions,
-        fbLinkClicks: ins.linkClicks,
-        smartlinkClicks,
-        smartlinkStreams,
       })
       .onConflictDoUpdate({
-        target: [adMetricDaily.adId, adMetricDaily.date],
+        target: [releaseMetricDaily.releaseId, releaseMetricDaily.date],
         set: {
+          spotifyStreams: spotifyResult.streams,
+          spotifyListeners: spotifyResult.listeners,
+          source: spotifyResult.source,
+        },
+      });
+
+    for (let i = 0; i < publishedAds.length; i++) {
+      const ad = publishedAds[i];
+      const ins = insightsByAd.get(ad.id) ?? { spendCents: 0, impressions: 0, linkClicks: 0 };
+      const smartlinkClicks = smartlinkClicksPerAd[i];
+      const smartlinkStreams = smartlinkStreamsPerAd ? smartlinkStreamsPerAd[i] : null;
+
+      await tx
+        .insert(adMetricDaily)
+        .values({
+          adId: ad.id,
+          date: args.date,
           spendCents: ins.spendCents,
           impressions: ins.impressions,
           fbLinkClicks: ins.linkClicks,
           smartlinkClicks,
           smartlinkStreams,
-        },
-      });
-  }
+        })
+        .onConflictDoUpdate({
+          target: [adMetricDaily.adId, adMetricDaily.date],
+          set: {
+            spendCents: ins.spendCents,
+            impressions: ins.impressions,
+            fbLinkClicks: ins.linkClicks,
+            smartlinkClicks,
+            smartlinkStreams,
+          },
+        });
+    }
+  });
 
   return {
     adsProcessed: publishedAds.length,

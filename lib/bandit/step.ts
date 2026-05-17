@@ -90,7 +90,7 @@ export async function runBanditStep(args: RunBanditStepArgs): Promise<RunBanditS
         fraudAdIds.add(row.ad.id);
         await db
           .update(adMetricDaily)
-          .set({ excludedReason: "fraud_suspected" })
+          .set({ excludedReason: "fraud_suspected", compositeScore: null })
           .where(eq(adMetricDaily.id, row.metric.id));
         continue;
       }
@@ -114,8 +114,9 @@ export async function runBanditStep(args: RunBanditStepArgs): Promise<RunBanditS
       if (p.action !== "pause") continue;
       const ad = adByIdInThisAudience.get(p.adId);
       if (!ad || ad.status !== "published") continue;
-      await db.update(ads).set({ status: "paused" }).where(eq(ads.id, p.adId));
+      // FB first: if it fails, throw and leave DB consistent with remote state.
       if (ad.fbAdId) await fb.pauseAd(ad.fbAdId);
+      await db.update(ads).set({ status: "paused" }).where(eq(ads.id, p.adId));
       await writeAudit({ entityType: "ad", entityId: p.adId, event: "paused_by_bandit", payload: { audienceId } });
       adsPaused++;
     }
@@ -125,8 +126,8 @@ export async function runBanditStep(args: RunBanditStepArgs): Promise<RunBanditS
       if (!fraudAdIds.has(row.ad.id)) continue;
       const ad = adByIdInThisAudience.get(row.ad.id);
       if (!ad || ad.status !== "published") continue;
-      await db.update(ads).set({ status: "paused" }).where(eq(ads.id, row.ad.id));
       if (ad.fbAdId) await fb.pauseAd(ad.fbAdId);
+      await db.update(ads).set({ status: "paused" }).where(eq(ads.id, row.ad.id));
       await writeAudit({ entityType: "ad", entityId: row.ad.id, event: "paused_by_bandit", payload: { audienceId, reason: "fraud_suspected" } });
       adsPaused++;
     }
@@ -138,19 +139,27 @@ export async function runBanditStep(args: RunBanditStepArgs): Promise<RunBanditS
     audienceMeanScores.push({ audienceId, meanScore, currentBudgetCents: aud.dailyBudgetCents });
   }
 
-  // 5. reweight audience budgets
+  // 5. reweight audience budgets across the FULL audience set — audiences with no
+  // metric row this period get meanScore=0 so they participate in normalization,
+  // otherwise total allocations could drift above campaign.dailyBudgetCents.
   let budgetsReweighted = 0;
-  if (audienceMeanScores.length > 0) {
-    const newBudgets = reweighAudienceBudgets(audienceMeanScores, campaign.dailyBudgetCents);
+  if (audsList.length > 0) {
+    const scoreByAud = new Map(audienceMeanScores.map((s) => [s.audienceId, s.meanScore]));
+    const inputs = audsList.map((a) => ({
+      audienceId: a.id,
+      meanScore: scoreByAud.get(a.id) ?? 0,
+      currentBudgetCents: a.dailyBudgetCents,
+    }));
+    const newBudgets = reweighAudienceBudgets(inputs, campaign.dailyBudgetCents);
     for (const nb of newBudgets) {
-      const before = audienceMeanScores.find((s) => s.audienceId === nb.audienceId);
+      const before = inputs.find((s) => s.audienceId === nb.audienceId);
       if (before && before.currentBudgetCents !== nb.newBudgetCents) {
+        const audRow = audById.get(nb.audienceId);
+        if (audRow?.fbAdSetId) await fb.setAdSetDailyBudget(audRow.fbAdSetId, nb.newBudgetCents);
         await db
           .update(audiences)
           .set({ dailyBudgetCents: nb.newBudgetCents })
           .where(eq(audiences.id, nb.audienceId));
-        const audRow = audById.get(nb.audienceId);
-        if (audRow?.fbAdSetId) await fb.setAdSetDailyBudget(audRow.fbAdSetId, nb.newBudgetCents);
         await writeAudit({
           entityType: "audience",
           entityId: nb.audienceId,
@@ -198,8 +207,8 @@ async function archivePass(campaignId: string, fb: FBClient): Promise<number> {
 
   let n = 0;
   for (const ad of stale) {
-    await db.update(ads).set({ status: "killed" }).where(eq(ads.id, ad.id));
     if (ad.fbAdId) await fb.archiveAd(ad.fbAdId);
+    await db.update(ads).set({ status: "killed" }).where(eq(ads.id, ad.id));
     await writeAudit({
       entityType: "ad",
       entityId: ad.id,

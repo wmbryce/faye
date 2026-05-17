@@ -23,12 +23,14 @@ describe("rankNormalize", () => {
     expect(rankNormalize([30, 10, 20])).toEqual([1, -1, 0]);
   });
 
-  it("ties resolved by input order (stable)", () => {
-    const r = rankNormalize([5, 5, 5, 5]);
-    expect(r[0]).toBe(-1);
-    expect(r[1]).toBeCloseTo(-1 / 3);
-    expect(r[2]).toBeCloseTo(1 / 3);
-    expect(r[3]).toBe(1);
+  it("ties share their mid-rank — all-equal collapses to 0", () => {
+    expect(rankNormalize([5, 5, 5, 5])).toEqual([0, 0, 0, 0]);
+  });
+
+  it("partial ties: tied values share mid-rank, distinct values keep their rank", () => {
+    // sorted: [10@0, 20@1, 20@2, 30@3]; mid-rank for the two 20s = 1.5
+    // norms: 10 → -1, 20 → 2*1.5/3 - 1 = 0, 30 → 1
+    expect(rankNormalize([20, 10, 30, 20])).toEqual([0, -1, 1, 0]);
   });
 
   it("handles negative + positive", () => {

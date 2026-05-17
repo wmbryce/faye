@@ -186,7 +186,10 @@ export const releaseMetricDaily = pgTable("release_metric_daily", {
   spotifyListeners: integer("spotify_listeners"),
   source: text("source", { enum: ["s4a", "web_estimate"] }).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-}, (t) => ({ releaseDateUnq: unique().on(t.releaseId, t.date) }));
+}, (t) => ({
+  releaseDateUnq: unique().on(t.releaseId, t.date),
+  sourceChk: check("release_metric_daily_source_chk", sql`${t.source} IN ('s4a','web_estimate')`),
+}));
 
 export type AdMetricDaily = typeof adMetricDaily.$inferSelect;
 export type ReleaseMetricDaily = typeof releaseMetricDaily.$inferSelect;

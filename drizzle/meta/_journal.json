@@ -64,6 +64,13 @@
       "when": 1779050427937,
       "tag": "0008_uneven_colossus",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1779051029874,
+      "tag": "0009_free_earthquake",
+      "breakpoints": true
     }
   ]
 }
