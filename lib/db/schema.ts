@@ -193,3 +193,22 @@ export const releaseMetricDaily = pgTable("release_metric_daily", {
 
 export type AdMetricDaily = typeof adMetricDaily.$inferSelect;
 export type ReleaseMetricDaily = typeof releaseMetricDaily.$inferSelect;
+
+export const llmRuns = pgTable("llm_runs", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  campaignId: uuid("campaign_id").references(() => campaigns.id, { onDelete: "set null" }),
+  date: date("date").notNull(),
+  kind: text("kind", { enum: ["critique", "generate", "safety"] }).notNull(),
+  model: text("model").notNull(),
+  inputTokens: integer("input_tokens").notNull().default(0),
+  outputTokens: integer("output_tokens").notNull().default(0),
+  cachedInputTokens: integer("cached_input_tokens").notNull().default(0),
+  costCents: integer("cost_cents"),
+  promptHash: text("prompt_hash").notNull(),
+  output: jsonb("output"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  campaignDateIdx: index("llm_runs_campaign_date_idx").on(t.campaignId, t.date),
+}));
+
+export type LLMRun = typeof llmRuns.$inferSelect;
