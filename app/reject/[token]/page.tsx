@@ -84,7 +84,11 @@ export default async function RejectPage({ params }: { params: Promise<{ token: 
           <div className="overflow-hidden rounded-md border border-border-subtle bg-surface-2">
             {/* assets are auth-gated; the email recipient may not be the operator, but the operator who clicks
                 from their inbox while logged in will see the preview */}
-            <img src={ad.assetUrl} alt="" className="w-full aspect-square object-cover" />
+            <img
+              src={ad.assetUrl}
+              alt={`Ad preview for ${ad.artistName} — ${ad.releaseTitle}`}
+              className="w-full aspect-square object-cover"
+            />
           </div>
 
           <div className="space-y-1">
