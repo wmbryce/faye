@@ -16,7 +16,26 @@ import { rejectAdAction } from "./actions";
 
 export default async function RejectPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
-  const decodedToken = decodeURIComponent(token);
+  let decodedToken: string;
+  try {
+    decodedToken = decodeURIComponent(token);
+  } catch {
+    return (
+      <Layout>
+        <Card>
+          <CardContent className="p-6 space-y-2">
+            <h1 className="text-xl font-semibold">{REJECT_REASON_LABEL.malformed}</h1>
+            <p className="text-sm text-muted-foreground">
+              This reject link is no longer valid.
+            </p>
+            <p className="text-sm">
+              <Link href="/" className="underline">Go to dashboard →</Link>
+            </p>
+          </CardContent>
+        </Card>
+      </Layout>
+    );
+  }
   const v = await verifyRejectToken(decodedToken);
 
   if (!v.ok) {

@@ -234,10 +234,12 @@ export const consumedRejectTokens = pgTable("consumed_reject_tokens", {
 export const notifications = pgTable("notifications", {
   id: uuid("id").defaultRandom().primaryKey(),
   campaignId: uuid("campaign_id").references(() => campaigns.id, { onDelete: "set null" }),
-  kind: text("kind").notNull(),                     // "daily_digest"
+  kind: text("kind", { enum: ["daily_digest"] }).notNull(),
   sentAt: timestamp("sent_at", { withTimezone: true }).defaultNow().notNull(),
   payload: jsonb("payload"),
-});
+}, (t) => ({
+  kindChk: check("notifications_kind_chk", sql`${t.kind} IN ('daily_digest')`),
+}));
 
 export type ConsumedRejectToken = typeof consumedRejectTokens.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;

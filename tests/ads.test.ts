@@ -199,7 +199,7 @@ describe("approve/reject pending in-app", () => {
     const { eq } = await import("drizzle-orm");
     await db.update(ads).set({ status: "pending", publishAt: new Date(Date.now() + 60_000) }).where(eq(ads.id, ad.id));
     const before = new Date();
-    await approvePendingAd(ad.id);
+    await approvePendingAd(campaign.id, ad.id);
     const [fresh] = await db.select().from(ads).where(eq(ads.id, ad.id));
     expect(fresh.status).toBe("pending");
     expect(fresh.publishAt && fresh.publishAt.getTime()).toBeGreaterThanOrEqual(before.getTime() - 1000);
@@ -214,7 +214,20 @@ describe("approve/reject pending in-app", () => {
       copyHeadline: "h", copyPrimaryText: "p", copyBody: "",
     });
     // status stays "draft"
-    await expect(approvePendingAd(ad.id)).rejects.toThrow(/status draft/);
+    await expect(approvePendingAd(campaign.id, ad.id)).rejects.toThrow(/not pending/);
+  });
+
+  it("approvePendingAd refuses cross-campaign mutation", async () => {
+    const { campaign, audience, asset } = await seedCampaign();
+    const ad = await createDraftAd({
+      campaignId: campaign.id, audienceId: audience.id, assetId: asset.id,
+      copyHeadline: "h", copyPrimaryText: "p", copyBody: "",
+    });
+    const { ads } = await import("@/lib/db/schema");
+    const { eq } = await import("drizzle-orm");
+    await db.update(ads).set({ status: "pending" }).where(eq(ads.id, ad.id));
+    await expect(approvePendingAd("00000000-0000-0000-0000-000000000000", ad.id))
+      .rejects.toThrow(/not pending|not in this campaign/);
   });
 
   it("rejectPendingAd flips status + writes audit", async () => {
@@ -226,7 +239,7 @@ describe("approve/reject pending in-app", () => {
     const { ads } = await import("@/lib/db/schema");
     const { eq } = await import("drizzle-orm");
     await db.update(ads).set({ status: "pending" }).where(eq(ads.id, ad.id));
-    await rejectPendingAd(ad.id);
+    await rejectPendingAd(campaign.id, ad.id);
     const [fresh] = await db.select().from(ads).where(eq(ads.id, ad.id));
     expect(fresh.status).toBe("rejected");
     expect(fresh.rejectedReason).toBe("operator-in-app");
@@ -241,6 +254,6 @@ describe("approve/reject pending in-app", () => {
       copyHeadline: "h", copyPrimaryText: "p", copyBody: "",
     });
     // status stays "draft"
-    await expect(rejectPendingAd(ad.id)).rejects.toThrow(/status draft/);
+    await expect(rejectPendingAd(campaign.id, ad.id)).rejects.toThrow(/not pending/);
   });
 });

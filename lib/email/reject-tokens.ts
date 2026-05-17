@@ -38,7 +38,18 @@ export async function verifyRejectToken(token: string): Promise<RejectVerifyResu
   return { ok: true, adId: v.payload.adId, nonce: v.payload.nonce };
 }
 
-/** Record the nonce so a re-use returns `already_used`. */
-export async function consumeRejectToken(args: { nonce: string; adId: string }): Promise<void> {
-  await db.insert(consumedRejectTokens).values(args).onConflictDoNothing();
+/**
+ * Record the nonce so a re-use returns `already_used`.
+ * Returns true when this call was the first to consume the token; false when
+ * another concurrent/prior call already inserted the same nonce. Callers should
+ * use the return value to gate any side effects so two concurrent operators
+ * (or a back-button retry) don't double-process the same reject.
+ */
+export async function consumeRejectToken(args: { nonce: string; adId: string }): Promise<boolean> {
+  const rows = await db
+    .insert(consumedRejectTokens)
+    .values(args)
+    .onConflictDoNothing()
+    .returning({ nonce: consumedRejectTokens.nonce });
+  return rows.length > 0;
 }

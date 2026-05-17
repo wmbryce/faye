@@ -92,7 +92,13 @@ function PendingAdCard({ ad }: { ad: CampaignDigest["pendingAds"][number] }) {
     <Section style={{ background: "#111114", border: "1px solid #1F1F25", borderRadius: 8, padding: 12, marginBottom: 8 }}>
       <Row>
         <Column style={{ width: 96, verticalAlign: "top", paddingRight: 12 }}>
-          <Img src={ad.assetUrl} alt="" width={88} height={88} style={{ borderRadius: 6, objectFit: "cover", display: "block" }} />
+          <Img
+            src={ad.assetUrl}
+            alt={ad.copyHeadline || "Ad preview"}
+            width={88}
+            height={88}
+            style={{ borderRadius: 6, objectFit: "cover", display: "block" }}
+          />
         </Column>
         <Column style={{ verticalAlign: "top" }}>
           <Text style={{ fontSize: 11, color: "#7A7A85", margin: 0 }}>{ad.audienceName}</Text>

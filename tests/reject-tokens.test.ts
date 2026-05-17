@@ -100,8 +100,15 @@ describe("reject tokens", () => {
     const v = await verifyRejectToken(token);
     expect(v.ok).toBe(true);
     if (!v.ok) return;
-    await consumeRejectToken({ nonce: v.nonce, adId: v.adId });
-    // Second call should silently succeed (onConflictDoNothing)
-    await expect(consumeRejectToken({ nonce: v.nonce, adId: v.adId })).resolves.toBeUndefined();
+    // Truly concurrent invocation — exercise the race window
+    const [a, b] = await Promise.all([
+      consumeRejectToken({ nonce: v.nonce, adId: v.adId }),
+      consumeRejectToken({ nonce: v.nonce, adId: v.adId }),
+    ]);
+    // Exactly one of the two should have won the insert
+    expect([a, b].filter(Boolean)).toHaveLength(1);
+    const v2 = await verifyRejectToken(token);
+    expect(v2.ok).toBe(false);
+    if (!v2.ok) expect(v2.reason).toBe("already_used");
   });
 });

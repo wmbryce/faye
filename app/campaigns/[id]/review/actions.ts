@@ -9,14 +9,14 @@ async function requireUser() {
 
 export async function approveAction(campaignId: string, adId: string) {
   await requireUser();
-  await approvePendingAd(adId);
+  await approvePendingAd(campaignId, adId);
   revalidatePath(`/campaigns/${campaignId}/review`);
   revalidatePath(`/campaigns/${campaignId}`);
 }
 
 export async function rejectAction(campaignId: string, adId: string) {
   await requireUser();
-  await rejectPendingAd(adId);
+  await rejectPendingAd(campaignId, adId);
   revalidatePath(`/campaigns/${campaignId}/review`);
   revalidatePath(`/campaigns/${campaignId}`);
 }

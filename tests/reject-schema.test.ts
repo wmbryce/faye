@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { artists, releases, audienceSeeds, assets, campaigns, audiences, ads, consumedRejectTokens, notifications } from "@/lib/db/schema";
 
@@ -28,6 +29,14 @@ describe("phase 7 schema", () => {
     await db.insert(consumedRejectTokens).values({ nonce: "abc123", adId: ad.id });
     // unique-on-nonce: cannot reuse
     await expect(db.insert(consumedRejectTokens).values({ nonce: "abc123", adId: ad.id })).rejects.toThrow();
+
+    // ON DELETE CASCADE: token row goes with parent ad
+    await db.delete(ads).where(eq(ads.id, ad.id));
+    const remaining = await db
+      .select()
+      .from(consumedRejectTokens)
+      .where(eq(consumedRejectTokens.nonce, "abc123"));
+    expect(remaining).toHaveLength(0);
   });
 
   it("notifications: campaignId nullable; payload jsonb roundtrip", async () => {
