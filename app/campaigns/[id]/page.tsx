@@ -14,6 +14,7 @@ import { getArtist } from "@/lib/artists/queries";
 import { getRelease } from "@/lib/releases/queries";
 import { AdCard } from "@/components/campaigns/ad-card";
 import { pauseCampaignAction, resumeCampaignAction, endCampaignAction } from "./actions";
+import { RunDailyLoopButton } from "@/components/campaigns/run-daily-loop-button";
 
 export default async function CampaignDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await currentUser();
@@ -47,10 +48,11 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
         }
         description={`${campaign.startDate} → ${campaign.endDate}`}
         actions={
-          <div className="flex gap-2">
+          <div className="flex items-start gap-2">
             <Link href={`/campaigns/${campaign.id}/ads/new`}>
               <Button size="sm">+ New ad</Button>
             </Link>
+            <RunDailyLoopButton campaignId={campaign.id} disabled={campaign.status === "ended"} />
             {campaign.status === "active" && (
               <form action={pauseCampaignAction.bind(null, campaign.id)}>
                 <Button type="submit" variant="outline" size="sm">Pause</Button>
