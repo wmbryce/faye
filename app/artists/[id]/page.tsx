@@ -1,8 +1,14 @@
 import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
 import { currentUser } from "@/lib/auth/current-user";
-import { Nav } from "@/components/layout/nav";
+import { Shell } from "@/components/layout/shell";
+import { PageHeader } from "@/components/layout/page-header";
 import { getArtist } from "@/lib/artists/queries";
+import { listAssets } from "@/lib/assets/queries";
+import { listReleases } from "@/lib/releases/queries";
+import { listAudienceSeeds } from "@/lib/audiences/queries";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 export default async function ArtistDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await currentUser();
@@ -10,26 +16,92 @@ export default async function ArtistDetailPage({ params }: { params: Promise<{ i
   const { id } = await params;
   const artist = await getArtist(id);
   if (!artist) notFound();
+
+  const [assets, releases, seeds] = await Promise.all([
+    listAssets(id),
+    listReleases(id),
+    listAudienceSeeds(id),
+  ]);
+
   return (
-    <>
-      <Nav email={user.email} />
-      <main className="max-w-5xl mx-auto px-6 py-10 space-y-4">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold">{artist.name}</h1>
-          <Link href={`/artists/${artist.id}/edit`} className="text-sm underline">Edit</Link>
-        </div>
-        <dl className="grid grid-cols-2 gap-2 text-sm">
-          <dt className="text-muted-foreground">Spotify ID</dt><dd>{artist.spotifyArtistId}</dd>
-          <dt className="text-muted-foreground">Timezone</dt><dd>{artist.timezone}</dd>
-          <dt className="text-muted-foreground">FB page</dt><dd>{artist.fbPageId ?? "—"}</dd>
-        </dl>
-        <p className="text-sm whitespace-pre-wrap">{artist.voiceGuide || "(no voice guide)"}</p>
-        <nav className="flex gap-4 pt-6">
-          <Link href={`/artists/${artist.id}/assets`} className="text-sm underline">Assets</Link>
-          <Link href={`/artists/${artist.id}/releases`} className="text-sm underline">Releases</Link>
-          <Link href={`/artists/${artist.id}/audiences`} className="text-sm underline">Audience seeds</Link>
-        </nav>
-      </main>
-    </>
+    <Shell email={user.email}>
+      <PageHeader
+        eyebrow={<span className="font-mono">{artist.spotifyArtistId}</span>}
+        title={artist.name}
+        description={artist.timezone}
+        actions={
+          <Link href={`/artists/${artist.id}/edit`}>
+            <Button variant="outline" size="sm">Edit</Button>
+          </Link>
+        }
+      />
+
+      <div className="mt-8 grid lg:grid-cols-3 gap-4">
+        <ResourceCard
+          href={`/artists/${artist.id}/assets`}
+          label="Assets"
+          count={assets.length}
+          description="Images and short videos Faye picks from for ad creative."
+        />
+        <ResourceCard
+          href={`/artists/${artist.id}/releases`}
+          label="Releases"
+          count={releases.length}
+          description="Tracks or albums. Each release gets its own campaign window."
+        />
+        <ResourceCard
+          href={`/artists/${artist.id}/audiences`}
+          label="Audience seeds"
+          count={seeds.length}
+          description="Reusable FB targeting specs picked at campaign create (max 5 per campaign)."
+        />
+      </div>
+
+      <section className="mt-10">
+        <h2 className="label mb-3">Voice guide</h2>
+        <Card>
+          <CardContent className="p-5">
+            <p className="text-sm whitespace-pre-wrap leading-relaxed">
+              {artist.voiceGuide || <span className="text-muted-foreground">(no voice guide yet — Faye will generate generically)</span>}
+            </p>
+          </CardContent>
+        </Card>
+      </section>
+
+      <section className="mt-8">
+        <h2 className="label mb-3">Metadata</h2>
+        <Card>
+          <CardContent className="p-5">
+            <dl className="grid grid-cols-[10rem_1fr] gap-y-2 text-sm">
+              <dt className="label">Spotify ID</dt>
+              <dd className="num">{artist.spotifyArtistId}</dd>
+              <dt className="label">Timezone</dt>
+              <dd className="num">{artist.timezone}</dd>
+              <dt className="label">FB page</dt>
+              <dd className="num">{artist.fbPageId ?? "—"}</dd>
+              <dt className="label">S4A token</dt>
+              <dd className="num">{artist.spotifyForArtistsToken ? "linked" : "—"}</dd>
+            </dl>
+          </CardContent>
+        </Card>
+      </section>
+    </Shell>
+  );
+}
+
+function ResourceCard({ href, label, count, description }: { href: string; label: string; count: number; description: string }) {
+  return (
+    <Link href={href} className="group block">
+      <Card className="transition-colors group-hover:bg-surface-2/40 group-hover:border-border h-full">
+        <CardContent className="p-5">
+          <div className="flex items-baseline justify-between">
+            <div className="label">{label}</div>
+            <span className="text-muted-foreground group-hover:text-accent transition-colors">→</span>
+          </div>
+          <div className="mt-3 font-mono text-3xl tabular-nums tracking-tight">{count}</div>
+          <p className="mt-3 text-sm text-muted-foreground">{description}</p>
+        </CardContent>
+      </Card>
+    </Link>
   );
 }

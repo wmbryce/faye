@@ -1,4 +1,7 @@
 import { Button } from "@/components/ui/button";
+import { Field } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import type { Artist } from "@/lib/db/schema";
 
 export function ArtistForm({ initial, action, submitLabel }: {
@@ -7,46 +10,34 @@ export function ArtistForm({ initial, action, submitLabel }: {
   submitLabel: string;
 }) {
   return (
-    <form action={action} className="space-y-4 max-w-md">
-      <Field name="name" label="Artist name" required defaultValue={initial?.name ?? ""} />
+    <form action={action} className="space-y-5 max-w-lg">
+      <Field label="Artist name" htmlFor="name">
+        <Input id="name" name="name" required defaultValue={initial?.name ?? ""} placeholder="e.g. Hana Vu" />
+      </Field>
+
       {!initial?.spotifyArtistId ? (
-        <Field name="spotifyArtistId" label="Spotify artist ID" required />
+        <Field label="Spotify artist ID" htmlFor="spotifyArtistId" hint="The 22-char ID from the artist's Spotify URL.">
+          <Input id="spotifyArtistId" name="spotifyArtistId" required placeholder="3UvqOgnGFxGB6Khzpkjsx7" />
+        </Field>
       ) : (
         <input type="hidden" name="spotifyArtistId" value={initial.spotifyArtistId} />
       )}
-      <Field name="timezone" label="Timezone (IANA)" defaultValue={initial?.timezone ?? "America/Denver"} required />
-      <Field name="fbPageId" label="Facebook Page ID (optional)" defaultValue={initial?.fbPageId ?? ""} />
-      <TextArea name="voiceGuide" label="Voice guide" defaultValue={initial?.voiceGuide ?? ""} rows={6} />
-      <Button type="submit">{submitLabel}</Button>
+
+      <Field label="Timezone (IANA)" htmlFor="timezone" hint="Used to schedule the daily 09:00 cron for this artist.">
+        <Input id="timezone" name="timezone" required defaultValue={initial?.timezone ?? "America/Denver"} />
+      </Field>
+
+      <Field label="Facebook Page ID" htmlFor="fbPageId" hint="Optional. Used when Faye creates ads under your FB Page.">
+        <Input id="fbPageId" name="fbPageId" defaultValue={initial?.fbPageId ?? ""} placeholder="11111111111111" />
+      </Field>
+
+      <Field label="Voice guide" htmlFor="voiceGuide" hint="Free-text. Fed to the LLM each generation as the cached artist-context block.">
+        <Textarea id="voiceGuide" name="voiceGuide" defaultValue={initial?.voiceGuide ?? ""} rows={6} placeholder="warm + earnest indie folk; lyrical; references nature and small rooms; never use exclamation marks" />
+      </Field>
+
+      <div className="flex justify-end pt-2">
+        <Button type="submit">{submitLabel}</Button>
+      </div>
     </form>
-  );
-}
-
-function Field({ name, label, defaultValue, required, type }: { name: string; label: string; defaultValue?: string; required?: boolean; type?: string }) {
-  return (
-    <label className="block">
-      <span className="text-sm">{label}</span>
-      <input
-        name={name}
-        type={type ?? "text"}
-        defaultValue={defaultValue ?? ""}
-        required={required}
-        className="mt-1 w-full h-9 px-3 border border-border rounded-md bg-background"
-      />
-    </label>
-  );
-}
-
-function TextArea({ name, label, defaultValue, rows }: { name: string; label: string; defaultValue?: string; rows?: number }) {
-  return (
-    <label className="block">
-      <span className="text-sm">{label}</span>
-      <textarea
-        name={name}
-        defaultValue={defaultValue ?? ""}
-        rows={rows ?? 4}
-        className="mt-1 w-full px-3 py-2 border border-border rounded-md bg-background"
-      />
-    </label>
   );
 }

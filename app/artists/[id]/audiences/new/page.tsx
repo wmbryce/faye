@@ -1,6 +1,7 @@
 import { redirect, notFound } from "next/navigation";
 import { currentUser } from "@/lib/auth/current-user";
-import { Nav } from "@/components/layout/nav";
+import { Shell } from "@/components/layout/shell";
+import { PageHeader } from "@/components/layout/page-header";
 import { getArtist } from "@/lib/artists/queries";
 import { AudienceSeedForm } from "@/components/forms/audience-seed-form";
 import { createSeedAction } from "../actions";
@@ -12,12 +13,11 @@ export default async function NewSeedPage({ params }: { params: Promise<{ id: st
   const artist = await getArtist(id);
   if (!artist) notFound();
   return (
-    <>
-      <Nav email={user.email} />
-      <main className="max-w-5xl mx-auto px-6 py-10">
-        <h1 className="text-2xl font-semibold mb-6">New audience seed · {artist.name}</h1>
+    <Shell email={user.email}>
+      <PageHeader eyebrow={artist.name} title="New audience seed" />
+      <div className="mt-8">
         <AudienceSeedForm action={createSeedAction.bind(null, id)} />
-      </main>
-    </>
+      </div>
+    </Shell>
   );
 }
