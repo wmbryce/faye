@@ -1,0 +1,1 @@
+ALTER TABLE "ads" ADD COLUMN "parent_ad_id" uuid;

@@ -155,6 +155,39 @@ describe("campaign lifecycle", () => {
     expect(events).toContain("resumed");
     expect(events).toContain("ended");
   });
+
+  it("pauseCampaign throws on an already-paused campaign", async () => {
+    const { a, r, s1 } = await seedArtist();
+    const c = await createCampaign({
+      artistId: a.id, releaseId: r.id, dailyBudgetCents: 100,
+      startDate: "2026-06-01", endDate: "2026-07-01",
+      audienceSeedIds: [s1.id], spotifyTrackOrAlbumUrl: "https://open.spotify.com/track/abc",
+    });
+    await pauseCampaign(c.id);
+    await expect(pauseCampaign(c.id)).rejects.toThrow(/cannot pause/);
+  });
+
+  it("resumeCampaign throws when not paused", async () => {
+    const { a, r, s1 } = await seedArtist();
+    const c = await createCampaign({
+      artistId: a.id, releaseId: r.id, dailyBudgetCents: 100,
+      startDate: "2026-06-01", endDate: "2026-07-01",
+      audienceSeedIds: [s1.id], spotifyTrackOrAlbumUrl: "https://open.spotify.com/track/abc",
+    });
+    // active campaign, can't resume
+    await expect(resumeCampaign(c.id)).rejects.toThrow(/cannot resume/);
+  });
+
+  it("endCampaign throws on already-ended campaign", async () => {
+    const { a, r, s1 } = await seedArtist();
+    const c = await createCampaign({
+      artistId: a.id, releaseId: r.id, dailyBudgetCents: 100,
+      startDate: "2026-06-01", endDate: "2026-07-01",
+      audienceSeedIds: [s1.id], spotifyTrackOrAlbumUrl: "https://open.spotify.com/track/abc",
+    });
+    await endCampaign(c.id);
+    await expect(endCampaign(c.id)).rejects.toThrow(/cannot end/);
+  });
 });
 
 describe("campaign queries", () => {

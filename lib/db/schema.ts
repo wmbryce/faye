@@ -129,6 +129,7 @@ export const ads = pgTable("ads", {
   publishAt: timestamp("publish_at", { withTimezone: true }),
   rejectedAt: timestamp("rejected_at", { withTimezone: true }),
   rejectedReason: text("rejected_reason"),
+  parentAdId: uuid("parent_ad_id"),  // self-reference to ads.id; FK added in a follow-up to avoid Drizzle circular-ref typing
   promptHash: text("prompt_hash"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });

@@ -2,7 +2,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { currentUser } from "@/lib/auth/current-user";
-import { createDraftAd, publishAd } from "@/lib/ads/mutations";
+import { createDraftAd, publishAd, pauseAdById, killAdById } from "@/lib/ads/mutations";
 
 export async function createAdAction(campaignId: string, formData: FormData) {
   if (!(await currentUser())) throw new Error("unauthorized");
@@ -33,4 +33,18 @@ export async function createAdAction(campaignId: string, formData: FormData) {
   revalidatePath(`/campaigns/${campaignId}`);
   revalidatePath(`/campaigns/${campaignId}/ads`);
   redirect(`/campaigns/${campaignId}`);
+}
+
+export async function pauseAdAction(campaignId: string, adId: string) {
+  if (!(await currentUser())) throw new Error("unauthorized");
+  await pauseAdById(adId);
+  revalidatePath(`/campaigns/${campaignId}`);
+  revalidatePath(`/campaigns/${campaignId}/ads`);
+}
+
+export async function killAdAction(campaignId: string, adId: string) {
+  if (!(await currentUser())) throw new Error("unauthorized");
+  await killAdById(adId);
+  revalidatePath(`/campaigns/${campaignId}`);
+  revalidatePath(`/campaigns/${campaignId}/ads`);
 }

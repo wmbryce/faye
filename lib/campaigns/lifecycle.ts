@@ -5,6 +5,9 @@ import { writeAudit } from "@/lib/audit/log";
 import { makeFBClient } from "@/lib/fb/factory";
 
 export async function pauseCampaign(id: string): Promise<void> {
+  const [c] = await db.select({ status: campaigns.status }).from(campaigns).where(eq(campaigns.id, id)).limit(1);
+  if (!c) throw new Error("campaign not found");
+  if (c.status !== "active") throw new Error(`cannot pause campaign in status ${c.status}`);
   const sets = await audienceSetIds(id);
   const fb = await makeFBClient();
   for (const adSetId of sets) await fb.pauseAdSet(adSetId);
@@ -13,6 +16,9 @@ export async function pauseCampaign(id: string): Promise<void> {
 }
 
 export async function resumeCampaign(id: string): Promise<void> {
+  const [c] = await db.select({ status: campaigns.status }).from(campaigns).where(eq(campaigns.id, id)).limit(1);
+  if (!c) throw new Error("campaign not found");
+  if (c.status !== "paused") throw new Error(`cannot resume campaign in status ${c.status}`);
   const sets = await audienceSetIds(id);
   const fb = await makeFBClient();
   for (const adSetId of sets) await fb.resumeAdSet(adSetId);
@@ -21,6 +27,9 @@ export async function resumeCampaign(id: string): Promise<void> {
 }
 
 export async function endCampaign(id: string): Promise<void> {
+  const [c] = await db.select({ status: campaigns.status }).from(campaigns).where(eq(campaigns.id, id)).limit(1);
+  if (!c) throw new Error("campaign not found");
+  if (c.status === "ended") throw new Error(`cannot end campaign in status ${c.status}`);
   const sets = await audienceSetIds(id);
   const fb = await makeFBClient();
   for (const adSetId of sets) await fb.pauseAdSet(adSetId);

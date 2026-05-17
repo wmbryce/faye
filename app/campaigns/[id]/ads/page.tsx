@@ -4,6 +4,7 @@ import { currentUser } from "@/lib/auth/current-user";
 import { Shell } from "@/components/layout/shell";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
+import { pauseAdAction, killAdAction } from "./actions";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge, statusVariant } from "@/components/ui/badge";
@@ -62,6 +63,7 @@ export default async function AdsPage({ params }: { params: Promise<{ id: string
                   <th className="text-left font-medium px-5 py-3 label">Headline</th>
                   <th className="text-left font-medium px-5 py-3 label">Audience</th>
                   <th className="text-left font-medium px-5 py-3 label">FB ID</th>
+                  <th className="text-left font-medium px-5 py-3 label">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -72,6 +74,23 @@ export default async function AdsPage({ params }: { params: Promise<{ id: string
                     <td className="px-5 py-3 font-medium truncate max-w-[20rem]">{ad.copyHeadline}</td>
                     <td className="px-5 py-3 text-muted-foreground">{audienceName.get(ad.audienceId) ?? "—"}</td>
                     <td className="px-5 py-3 num text-xs text-muted-foreground">{ad.fbAdId ?? "—"}</td>
+                    <td className="px-5 py-3">
+                      <div className="flex gap-2 items-center">
+                        {ad.status === "published" && (
+                          <form action={pauseAdAction.bind(null, id, ad.id)}>
+                            <Button type="submit" variant="ghost" size="sm">Pause</Button>
+                          </form>
+                        )}
+                        {(ad.status === "published" || ad.status === "paused") && (
+                          <form action={killAdAction.bind(null, id, ad.id)}>
+                            <Button type="submit" variant="ghost" size="sm">Kill</Button>
+                          </form>
+                        )}
+                        {ad.status !== "published" && ad.status !== "paused" && (
+                          <span className="text-muted-foreground text-xs">—</span>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
