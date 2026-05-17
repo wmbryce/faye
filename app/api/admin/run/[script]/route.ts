@@ -3,15 +3,12 @@ import { currentUser } from "@/lib/auth/current-user";
 import { pullDailyMetrics } from "@/lib/metrics/pull";
 import { runBanditStep } from "@/lib/bandit/step";
 import { publisherTick } from "@/lib/publisher/tick";
+import { yesterdayISO } from "@/scripts/_shared";
 
 type Script = "metrics-pull" | "bandit-step" | "publish-tick";
 
 function isScript(s: string): s is Script {
   return s === "metrics-pull" || s === "bandit-step" || s === "publish-tick";
-}
-
-function yesterday(): string {
-  return new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
 export async function POST(req: Request, ctx: { params: Promise<{ script: string }> }) {
@@ -24,7 +21,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ script: string
   }
   const body = await req.json().catch(() => ({}));
   const campaignId: string | undefined = typeof body.campaignId === "string" ? body.campaignId : undefined;
-  const date: string = typeof body.date === "string" ? body.date : yesterday();
+  const date: string = typeof body.date === "string" ? body.date : yesterdayISO();
 
   try {
     if (script === "publish-tick") {
@@ -43,7 +40,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ script: string
       return NextResponse.json(r);
     }
   } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: message, script, campaignId }, { status: 500 });
   }
   return NextResponse.json({ error: "unreachable" }, { status: 500 });
 }

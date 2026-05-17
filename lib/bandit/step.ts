@@ -1,9 +1,10 @@
-import { and, eq, lt, lte, desc } from "drizzle-orm";
+import { and, eq, lte } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
-  adMetricDaily, releaseMetricDaily, ads, audiences, campaigns,
+  adMetricDaily, ads, audiences, campaigns,
   type Ad, type AdMetricDaily,
 } from "@/lib/db/schema";
+import { computeReleaseBaseline, getReleaseStreamDelta } from "@/lib/metrics/queries";
 import { scoreCohort, type AdSnapshot } from "@/lib/composite/score";
 import { fraudFlag } from "@/lib/composite/fraud";
 import { prune } from "@/lib/bandit/prune";
@@ -13,7 +14,6 @@ import type { FBClient } from "@/lib/fb/client";
 import { writeAudit } from "@/lib/audit/log";
 
 const K_SURVIVORS = 3;
-const BASELINE_DAYS = 7;
 
 export type RunBanditStepArgs = {
   campaignId: string;
@@ -36,8 +36,8 @@ export async function runBanditStep(args: RunBanditStepArgs): Promise<RunBanditS
 
   const fb = args.overrides?.fb ?? (await makeFBClient());
 
-  const baseline = await computeBaseline(campaign.releaseId, campaign.startDate);
-  const releaseStreamDelta = await releaseStreamsForDate(campaign.releaseId, args.date, baseline);
+  const baseline = await computeReleaseBaseline(campaign.releaseId, campaign.startDate);
+  const releaseStreamDelta = await getReleaseStreamDelta(campaign.releaseId, args.date, baseline);
 
   const metricRows = await db
     .select({ metric: adMetricDaily, ad: ads })
@@ -209,30 +209,4 @@ async function archivePass(campaignId: string, fb: FBClient): Promise<number> {
     n++;
   }
   return n;
-}
-
-async function computeBaseline(releaseId: string, campaignStart: string): Promise<number> {
-  const rows = await db
-    .select()
-    .from(releaseMetricDaily)
-    .where(and(eq(releaseMetricDaily.releaseId, releaseId), lt(releaseMetricDaily.date, campaignStart)))
-    .orderBy(desc(releaseMetricDaily.date))
-    .limit(BASELINE_DAYS);
-  if (rows.length === 0) return 0;
-  const sum = rows.reduce((a, r) => a + (r.spotifyStreams ?? 0), 0);
-  return sum / rows.length;
-}
-
-async function releaseStreamsForDate(
-  releaseId: string,
-  date: string,
-  baseline: number,
-): Promise<number | null> {
-  const [row] = await db
-    .select()
-    .from(releaseMetricDaily)
-    .where(and(eq(releaseMetricDaily.releaseId, releaseId), eq(releaseMetricDaily.date, date)))
-    .limit(1);
-  if (!row || row.spotifyStreams == null) return null;
-  return row.spotifyStreams - baseline;
 }

@@ -57,6 +57,13 @@
       "when": 1779049969726,
       "tag": "0007_sad_cassandra_nova",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1779050427937,
+      "tag": "0008_uneven_colossus",
+      "breakpoints": true
     }
   ]
 }

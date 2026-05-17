@@ -55,24 +55,22 @@ export async function pullDailyMetrics(args: PullDailyMetricsArgs): Promise<Pull
     if (ins) insightsByAd.set(ad.id, ins);
   }));
 
-  // 3. smartlink totals (once per campaign)
-  let smartlinkClicksTotal = 0;
-  let smartlinkStreamsTotal: number | null = null;
-  if (campaign.smartlinkId) {
-    const m = await sl.getDailyMetrics({ smartlinkId: campaign.smartlinkId, date: args.date });
-    smartlinkClicksTotal = m.clicks;
-    smartlinkStreamsTotal = m.estimatedStreams ?? null;
-  }
+  // 3+5. smartlink + Spotify in parallel (both are once-per-campaign, independent)
+  const [smartlinkM, spotifyResult] = await Promise.all([
+    campaign.smartlinkId
+      ? sl.getDailyMetrics({ smartlinkId: campaign.smartlinkId, date: args.date })
+      : Promise.resolve({ smartlinkId: "", date: args.date, clicks: 0, spotifyClicks: 0, estimatedStreams: null as number | null }),
+    sp.getDailyStreams({
+      artistId: campaign.artistId,
+      trackId: release.kind === "track" ? release.spotifyId : undefined,
+      date: args.date,
+    }),
+  ]);
+  const smartlinkClicksTotal = smartlinkM.clicks;
+  const smartlinkStreamsTotal: number | null = smartlinkM.estimatedStreams ?? null;
 
-  // 4. apportion
+  // 4. store Spotify release row + apportion
   const fbClickTotal = Array.from(insightsByAd.values()).reduce((acc, x) => acc + x.linkClicks, 0);
-
-  // 5. Spotify streams for release (once per campaign)
-  const spotifyResult = await sp.getDailyStreams({
-    artistId: campaign.artistId,
-    trackId: release.kind === "track" ? release.spotifyId : undefined,
-    date: args.date,
-  });
   await db
     .insert(releaseMetricDaily)
     .values({

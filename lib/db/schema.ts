@@ -145,6 +145,7 @@ export const ads = pgTable("ads", {
   campaignCreatedIdx: index("ads_campaign_created_idx").on(t.campaignId, t.createdAt.desc()),
   audienceCreatedIdx: index("ads_audience_created_idx").on(t.audienceId, t.createdAt.desc()),
   parentAdIdx: index("ads_parent_ad_id_idx").on(t.parentAdId),
+  statusPublishAtIdx: index("ads_status_publish_at_idx").on(t.status, t.publishAt),
 }));
 
 export const auditLog = pgTable("audit_log", {

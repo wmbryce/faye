@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS "ads_status_publish_at_idx" ON "ads" USING btree ("status","publish_at");

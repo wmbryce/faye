@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { ads } from "@/lib/db/schema";
 import { publishAd } from "@/lib/ads/mutations";
 
+const TICK_BATCH_LIMIT = 50;
+
 export type PublisherTickResult = {
   attempted: number;
   published: number;
@@ -13,12 +15,14 @@ export type PublisherTickResult = {
  * Publishes all ads in status `pending` whose publishAt has elapsed.
  * Safe to run on a 5-min cron — uses publishAd() which is idempotent against
  * its own status guard (refuses to publish anything not `draft`/`pending`).
+ * Capped at TICK_BATCH_LIMIT per tick to prevent backlog spikes.
  */
 export async function publisherTick(now: Date = new Date()): Promise<PublisherTickResult> {
   const candidates = await db
     .select({ id: ads.id })
     .from(ads)
-    .where(and(eq(ads.status, "pending"), lte(ads.publishAt, now)));
+    .where(and(eq(ads.status, "pending"), lte(ads.publishAt, now)))
+    .limit(TICK_BATCH_LIMIT);
 
   const errors: { adId: string; error: string }[] = [];
   let published = 0;
