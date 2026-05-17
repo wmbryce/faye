@@ -8,6 +8,7 @@ export default defineConfig({
     env: { NODE_ENV: "test" },
     pool: "forks",
     poolOptions: { forks: { singleFork: true } },
+    exclude: ["node_modules", ".next", ".worktrees/**", "dist", ".idea", ".git", ".cache"],
   },
   resolve: { alias: { "@": path.resolve(__dirname, ".") } },
 });
