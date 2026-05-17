@@ -1,3 +1,4 @@
+export { SESSION_COOKIE_NAME, SESSION_COOKIE_MAX_AGE } from "./cookie";
 import { randomBytes, createHash } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
@@ -30,5 +31,3 @@ export async function destroySession(token: string) {
   await db.delete(sessions).where(eq(sessions.tokenHash, tokenHash));
 }
 
-export const SESSION_COOKIE_NAME = "faye_session";
-export const SESSION_COOKIE_MAX_AGE = SESSION_TTL_MS / 1000;

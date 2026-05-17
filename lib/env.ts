@@ -4,7 +4,6 @@ const Schema = z.object({
   DATABASE_URL: z.string().url(),
   DATABASE_URL_TEST: z.string().url(),
   AUTH_TOKEN_SECRET: z.string().min(32),
-  AUTH_COOKIE_SECRET: z.string().min(32),
   OPERATOR_EMAIL: z.string().email(),
   RESEND_API_KEY: z.string().min(1),
   RESEND_FROM: z.string().min(1),
