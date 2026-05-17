@@ -17,6 +17,8 @@ import { pauseCampaignAction, resumeCampaignAction, endCampaignAction } from "./
 import { RunDailyLoopButton } from "@/components/campaigns/run-daily-loop-button";
 import { SpendStreamsChart } from "@/components/charts/spend-streams-chart";
 import { spendStreamSeries } from "@/lib/metrics/timeseries";
+import { getCampaignDegradedFlags } from "@/lib/metrics/queries";
+import { DegradedBanner } from "@/components/degraded-banner";
 
 export default async function CampaignDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await currentUser();
@@ -24,7 +26,7 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
   const { id } = await params;
   const campaign = await getCampaign(id);
   if (!campaign) notFound();
-  const [artist, release, audiences, ads, series] = await Promise.all([
+  const [artist, release, audiences, ads, series, flags] = await Promise.all([
     getArtist(campaign.artistId),
     getRelease(campaign.releaseId),
     listAudiencesForCampaign(campaign.id),
@@ -33,6 +35,12 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
       campaignId: campaign.id,
       releaseId: campaign.releaseId,
       campaignStartDate: campaign.startDate,
+      fromDate: campaign.startDate,
+      toDate: campaign.endDate,
+    }),
+    getCampaignDegradedFlags({
+      campaignId: campaign.id,
+      releaseId: campaign.releaseId,
       fromDate: campaign.startDate,
       toDate: campaign.endDate,
     }),
@@ -95,6 +103,8 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
           </div>
         }
       />
+
+      <DegradedBanner s4aMissing={flags.s4aMissing} fraudExcluded={flags.fraudExcluded} />
 
       <section className="mt-8 grid sm:grid-cols-3 gap-4">
         <Card>

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE_NAME } from "@/lib/auth/cookie";
 
-const PUBLIC_PATHS = new Set(["/login", "/api/auth/request", "/api/auth/verify", "/api/health"]);
+const PUBLIC_PATHS = new Set(["/login", "/api/auth/request", "/api/auth/verify", "/api/health", "/api/fb/webhook"]);
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;

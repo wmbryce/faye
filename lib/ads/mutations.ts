@@ -219,3 +219,19 @@ export async function rejectPendingAd(campaignId: string, adId: string): Promise
     payload: { reason: "operator-in-app", source: "in-app" },
   });
 }
+
+export async function markAdRejectedByFb(fbAdId: string, reason: string): Promise<{ matched: number }> {
+  const [ad] = await db.select().from(ads).where(eq(ads.fbAdId, fbAdId)).limit(1);
+  if (!ad) return { matched: 0 };
+  const previousStatus = ad.status;
+  await db.update(ads).set({
+    status: "rejected",
+    rejectedAt: new Date(),
+    rejectedReason: reason,
+  }).where(eq(ads.id, ad.id));
+  await writeAudit({
+    entityType: "ad", entityId: ad.id, event: "fb_disapproved",
+    payload: { previousStatus, reason, fbAdId, source: "fb-webhook" },
+  });
+  return { matched: 1 };
+}

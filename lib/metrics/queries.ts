@@ -1,6 +1,6 @@
-import { and, eq, lt, desc } from "drizzle-orm";
+import { and, eq, lt, desc, gte, lte } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { releaseMetricDaily } from "@/lib/db/schema";
+import { releaseMetricDaily, adMetricDaily, ads } from "@/lib/db/schema";
 
 const BASELINE_DAYS = 7;
 
@@ -22,6 +22,40 @@ export async function computeReleaseBaseline(
   if (rows.length === 0) return 0;
   const sum = rows.reduce((a, r) => a + (r.spotifyStreams ?? 0), 0);
   return sum / rows.length;
+}
+
+export type DegradedFlags = {
+  s4aMissing: boolean;
+  fraudExcluded: number;
+};
+
+export async function getCampaignDegradedFlags(args: {
+  campaignId: string;
+  releaseId: string;
+  fromDate: string;
+  toDate: string;
+}): Promise<DegradedFlags> {
+  const [streamRows, fraudRows] = await Promise.all([
+    db.select({ source: releaseMetricDaily.source })
+      .from(releaseMetricDaily)
+      .where(and(
+        eq(releaseMetricDaily.releaseId, args.releaseId),
+        gte(releaseMetricDaily.date, args.fromDate),
+        lte(releaseMetricDaily.date, args.toDate),
+      )),
+    db.select({ id: adMetricDaily.id })
+      .from(adMetricDaily)
+      .innerJoin(ads, eq(ads.id, adMetricDaily.adId))
+      .where(and(
+        eq(ads.campaignId, args.campaignId),
+        eq(adMetricDaily.excludedReason, "fraud_suspected"),
+        gte(adMetricDaily.date, args.fromDate),
+        lte(adMetricDaily.date, args.toDate),
+      )),
+  ]);
+
+  const s4aMissing = streamRows.length === 0 || streamRows.some((r) => r.source !== "s4a");
+  return { s4aMissing, fraudExcluded: fraudRows.length };
 }
 
 /** Stream delta for `date` vs the `baseline`. null if no row exists. */

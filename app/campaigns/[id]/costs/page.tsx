@@ -10,7 +10,8 @@ import { getCampaign } from "@/lib/campaigns/queries";
 import { getArtist } from "@/lib/artists/queries";
 import { getRelease } from "@/lib/releases/queries";
 import { dailyCosts, llmCostByKind } from "@/lib/costs/aggregate";
-import { computeReleaseBaseline } from "@/lib/metrics/queries";
+import { computeReleaseBaseline, getCampaignDegradedFlags } from "@/lib/metrics/queries";
+import { DegradedBanner } from "@/components/degraded-banner";
 import { db } from "@/lib/db";
 import { releaseMetricDaily } from "@/lib/db/schema";
 import { and, eq, gte, lte } from "drizzle-orm";
@@ -28,7 +29,7 @@ export default async function CostsPage({ params }: { params: Promise<{ id: stri
   ]);
   if (!artist || !release) notFound();
 
-  const [costRows, llmByKind, baseline, streamRows] = await Promise.all([
+  const [costRows, llmByKind, baseline, streamRows, flags] = await Promise.all([
     dailyCosts({ campaignId: id, fromDate: campaign.startDate, toDate: campaign.endDate }),
     llmCostByKind(id),
     computeReleaseBaseline(release.id, campaign.startDate),
@@ -37,6 +38,12 @@ export default async function CostsPage({ params }: { params: Promise<{ id: stri
       gte(releaseMetricDaily.date, campaign.startDate),
       lte(releaseMetricDaily.date, campaign.endDate),
     )),
+    getCampaignDegradedFlags({
+      campaignId: id,
+      releaseId: release.id,
+      fromDate: campaign.startDate,
+      toDate: campaign.endDate,
+    }),
   ]);
 
   const totalAdSpendCents = costRows.reduce((a, r) => a + r.adSpendCents, 0);
@@ -64,6 +71,8 @@ export default async function CostsPage({ params }: { params: Promise<{ id: stri
           </Link>
         }
       />
+
+      <DegradedBanner s4aMissing={flags.s4aMissing} fraudExcluded={flags.fraudExcluded} />
 
       <section className="mt-8 grid sm:grid-cols-4 gap-3">
         <Card><CardContent className="p-5"><Stat label="Ad spend" value={`$${(totalAdSpendCents / 100).toFixed(2)}`} /></CardContent></Card>
