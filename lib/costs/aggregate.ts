@@ -1,6 +1,7 @@
 import { and, eq, gte, lte, sum, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { adMetricDaily, ads, llmRuns } from "@/lib/db/schema";
+import { adMetricDaily, llmRuns } from "@/lib/db/schema";
+import { getCampaignAdIds } from "@/lib/ads/queries";
 
 export type DailyCostRow = {
   date: string;            // YYYY-MM-DD
@@ -20,11 +21,7 @@ export async function dailyCosts(args: {
   toDate: string;
 }): Promise<DailyCostRow[]> {
   // 1. ad spend per date — sum across all ads in the campaign
-  const adIds = (await db
-    .select({ id: ads.id })
-    .from(ads)
-    .where(eq(ads.campaignId, args.campaignId))
-  ).map((a) => a.id);
+  const adIds = await getCampaignAdIds(args.campaignId);
 
   const adSpendByDate = adIds.length === 0
     ? []

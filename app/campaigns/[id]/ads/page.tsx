@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { redirect, notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth/current-user";
 import { Shell } from "@/components/layout/shell";
 import { PageHeader } from "@/components/layout/page-header";
@@ -8,10 +8,8 @@ import { pauseAdAction, killAdAction } from "./actions";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge, statusVariant } from "@/components/ui/badge";
-import { getCampaign } from "@/lib/campaigns/queries";
+import { getCampaignContext } from "@/lib/campaigns/queries";
 import { listAdsRichForCampaign } from "@/lib/ads/queries";
-import { getArtist } from "@/lib/artists/queries";
-import { getRelease } from "@/lib/releases/queries";
 
 function fmtMoney(cents: number) {
   return `$${(cents / 100).toFixed(2)}`;
@@ -26,13 +24,8 @@ export default async function AdsPage({ params }: { params: Promise<{ id: string
   const user = await currentUser();
   if (!user) redirect("/login");
   const { id } = await params;
-  const campaign = await getCampaign(id);
-  if (!campaign) notFound();
-  const [artist, release, rows] = await Promise.all([
-    getArtist(campaign.artistId),
-    getRelease(campaign.releaseId),
-    listAdsRichForCampaign(campaign.id),
-  ]);
+  const { campaign, artist, release } = await getCampaignContext(id);
+  const rows = await listAdsRichForCampaign(campaign.id);
 
   return (
     <Shell email={user.email}>

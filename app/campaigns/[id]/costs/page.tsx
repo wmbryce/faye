@@ -1,4 +1,4 @@
-import { redirect, notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { currentUser } from "@/lib/auth/current-user";
 import { Shell } from "@/components/layout/shell";
@@ -6,38 +6,27 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Stat } from "@/components/ui/stat";
-import { getCampaign } from "@/lib/campaigns/queries";
-import { getArtist } from "@/lib/artists/queries";
-import { getRelease } from "@/lib/releases/queries";
+import { getCampaignContext } from "@/lib/campaigns/queries";
 import { dailyCosts, llmCostByKind } from "@/lib/costs/aggregate";
-import { computeReleaseBaseline, getCampaignDegradedFlags } from "@/lib/metrics/queries";
+import { getCampaignStreamDelta, getCampaignDegradedFlags } from "@/lib/metrics/queries";
 import { DegradedBanner } from "@/components/degraded-banner";
-import { db } from "@/lib/db";
-import { releaseMetricDaily } from "@/lib/db/schema";
-import { and, eq, gte, lte } from "drizzle-orm";
 import { CostsChart } from "@/components/charts/costs-chart";
 
 export default async function CostsPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await currentUser();
   if (!user) redirect("/login");
   const { id } = await params;
-  const campaign = await getCampaign(id);
-  if (!campaign) notFound();
-  const [artist, release] = await Promise.all([
-    getArtist(campaign.artistId),
-    getRelease(campaign.releaseId),
-  ]);
-  if (!artist || !release) notFound();
+  const { campaign, artist, release } = await getCampaignContext(id);
 
-  const [costRows, llmByKind, baseline, streamRows, flags] = await Promise.all([
+  const [costRows, llmByKind, { totalDelta: totalStreamsDelta }, flags] = await Promise.all([
     dailyCosts({ campaignId: id, fromDate: campaign.startDate, toDate: campaign.endDate }),
     llmCostByKind(id),
-    computeReleaseBaseline(release.id, campaign.startDate),
-    db.select().from(releaseMetricDaily).where(and(
-      eq(releaseMetricDaily.releaseId, release.id),
-      gte(releaseMetricDaily.date, campaign.startDate),
-      lte(releaseMetricDaily.date, campaign.endDate),
-    )),
+    getCampaignStreamDelta({
+      releaseId: release.id,
+      campaignStartDate: campaign.startDate,
+      fromDate: campaign.startDate,
+      toDate: campaign.endDate,
+    }),
     getCampaignDegradedFlags({
       campaignId: id,
       releaseId: release.id,
@@ -50,8 +39,6 @@ export default async function CostsPage({ params }: { params: Promise<{ id: stri
   const totalLLMCents = costRows.reduce((a, r) => a + r.llmCostCents, 0);
   const totalCents = totalAdSpendCents + totalLLMCents;
 
-  const s4aRows = streamRows.filter((r) => r.source === "s4a" && r.spotifyStreams != null);
-  const totalStreamsDelta = s4aRows.reduce((a, r) => a + ((r.spotifyStreams ?? 0) - baseline), 0);
   const costPerStreamCents = totalStreamsDelta > 0 ? totalCents / totalStreamsDelta : null;
 
   const chartData = costRows.map((r) => ({

@@ -1,4 +1,4 @@
-import { redirect, notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { currentUser } from "@/lib/auth/current-user";
 import { Shell } from "@/components/layout/shell";
@@ -6,22 +6,15 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
-import { getCampaign } from "@/lib/campaigns/queries";
+import { getCampaignContext } from "@/lib/campaigns/queries";
 import { listAuditForCampaignAndAds } from "@/lib/audit/queries";
-import { getArtist } from "@/lib/artists/queries";
-import { getRelease } from "@/lib/releases/queries";
 
 export default async function CampaignAuditPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await currentUser();
   if (!user) redirect("/login");
   const { id } = await params;
-  const campaign = await getCampaign(id);
-  if (!campaign) notFound();
-  const [artist, release, entries] = await Promise.all([
-    getArtist(campaign.artistId),
-    getRelease(campaign.releaseId),
-    listAuditForCampaignAndAds(id, 500),
-  ]);
+  const { campaign, artist, release } = await getCampaignContext(id);
+  const entries = await listAuditForCampaignAndAds(id, 500);
 
   return (
     <Shell email={user.email}>

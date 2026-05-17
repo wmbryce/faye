@@ -35,14 +35,16 @@ export async function getCampaignDegradedFlags(args: {
   fromDate: string;
   toDate: string;
 }): Promise<DegradedFlags> {
-  const [streamRows, fraudRows] = await Promise.all([
-    db.select({ source: releaseMetricDaily.source, date: releaseMetricDaily.date })
+  const [latestStream, fraudRows] = await Promise.all([
+    db.select({ source: releaseMetricDaily.source })
       .from(releaseMetricDaily)
       .where(and(
         eq(releaseMetricDaily.releaseId, args.releaseId),
         gte(releaseMetricDaily.date, args.fromDate),
         lte(releaseMetricDaily.date, args.toDate),
-      )),
+      ))
+      .orderBy(desc(releaseMetricDaily.date))
+      .limit(1),
     db.select({ id: adMetricDaily.id })
       .from(adMetricDaily)
       .innerJoin(ads, eq(ads.id, adMetricDaily.adId))
@@ -54,10 +56,31 @@ export async function getCampaignDegradedFlags(args: {
       )),
   ]);
 
-  const sortedByDate = [...streamRows].sort((a, b) => b.date.localeCompare(a.date));
-  const mostRecent = sortedByDate[0];
-  const s4aMissing = !mostRecent || mostRecent.source !== "s4a";
+  const s4aMissing = !latestStream[0] || latestStream[0].source !== "s4a";
   return { s4aMissing, fraudExcluded: fraudRows.length };
+}
+
+/** Sum of (spotifyStreams - baseline) across s4a rows in [from, to]. Used for cost-per-stream. */
+export async function getCampaignStreamDelta(args: {
+  releaseId: string;
+  campaignStartDate: string;
+  fromDate: string;
+  toDate: string;
+}): Promise<{ totalDelta: number; baseline: number }> {
+  const [streamRows, baseline] = await Promise.all([
+    db.select({ source: releaseMetricDaily.source, spotifyStreams: releaseMetricDaily.spotifyStreams })
+      .from(releaseMetricDaily)
+      .where(and(
+        eq(releaseMetricDaily.releaseId, args.releaseId),
+        gte(releaseMetricDaily.date, args.fromDate),
+        lte(releaseMetricDaily.date, args.toDate),
+      )),
+    computeReleaseBaseline(args.releaseId, args.campaignStartDate),
+  ]);
+  const totalDelta = streamRows
+    .filter((r) => r.source === "s4a" && r.spotifyStreams != null)
+    .reduce((a, r) => a + ((r.spotifyStreams ?? 0) - baseline), 0);
+  return { totalDelta, baseline };
 }
 
 /** Stream delta for `date` vs the `baseline`. null if no row exists. */

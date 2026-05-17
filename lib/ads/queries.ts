@@ -2,6 +2,12 @@ import { and, eq, desc, isNotNull, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { ads, audiences, assets, adMetricDaily, type Ad, AD_STATUS } from "@/lib/db/schema";
 
+/** Returns ad IDs for a campaign — used to scope downstream metric queries. */
+export async function getCampaignAdIds(campaignId: string): Promise<string[]> {
+  const rows = await db.select({ id: ads.id }).from(ads).where(eq(ads.campaignId, campaignId));
+  return rows.map((r) => r.id);
+}
+
 export async function listAds(opts: { campaignId?: string; audienceId?: string }): Promise<Ad[]> {
   if (!opts.campaignId && !opts.audienceId) {
     throw new Error("listAds requires campaignId or audienceId");

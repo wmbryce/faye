@@ -39,19 +39,19 @@ export async function POST(req: Request) {
   let body: unknown;
   try { body = JSON.parse(raw); } catch { return NextResponse.json({ error: "bad json" }, { status: 400 }); }
 
-  let disapproved = 0;
+  const tasks: Promise<{ matched: number }>[] = [];
   for (const entry of getEntries(body)) {
     for (const change of getChanges(entry)) {
       if (change.field === "ads_review" && change.value?.review_status === "disapproved") {
         const fbAdId = String(change.value.ad_id ?? "");
         if (!fbAdId) continue;
         const reason = String(change.value.disapproval_reason ?? "policy");
-        const r = await markAdRejectedByFb(fbAdId, reason);
-        disapproved += r.matched;
+        tasks.push(markAdRejectedByFb(fbAdId, reason));
       }
     }
   }
-
+  const results = await Promise.all(tasks);
+  const disapproved = results.reduce((acc, r) => acc + r.matched, 0);
   return NextResponse.json({ ok: true, disapproved });
 }
 

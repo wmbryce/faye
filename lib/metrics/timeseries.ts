@@ -2,6 +2,7 @@ import { and, eq, gte, lte, sum, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { adMetricDaily, ads, releaseMetricDaily } from "@/lib/db/schema";
 import { computeReleaseBaseline } from "@/lib/metrics/queries";
+import { getCampaignAdIds } from "@/lib/ads/queries";
 
 export type SpendStreamPoint = {
   date: string;
@@ -23,7 +24,7 @@ export async function spendStreamSeries(args: {
   fromDate: string;
   toDate: string;
 }): Promise<SpendStreamPoint[]> {
-  const adIds = (await db.select({ id: ads.id }).from(ads).where(eq(ads.campaignId, args.campaignId))).map((a) => a.id);
+  const adIds = await getCampaignAdIds(args.campaignId);
 
   const [spendRows, streamRows, baseline] = await Promise.all([
     adIds.length === 0
@@ -74,9 +75,16 @@ export async function compositeSeries(args: {
   const campaignAds = await db.select().from(ads).where(eq(ads.campaignId, args.campaignId));
   if (campaignAds.length === 0) return { data: [], adKeys: [] };
 
-  // pick top-N by lifetime spend
+  // pick top-N by spend within the requested window (and fetch pivot data in one query)
+  const allMetrics = await db
+    .select()
+    .from(adMetricDaily)
+    .where(and(
+      inArray(adMetricDaily.adId, campaignAds.map((a) => a.id)),
+      gte(adMetricDaily.date, args.fromDate),
+      lte(adMetricDaily.date, args.toDate),
+    ));
   const spendByAd = new Map<string, number>();
-  const allMetrics = await db.select().from(adMetricDaily).where(inArray(adMetricDaily.adId, campaignAds.map((a) => a.id)));
   for (const m of allMetrics) {
     spendByAd.set(m.adId, (spendByAd.get(m.adId) ?? 0) + m.spendCents);
   }
@@ -100,7 +108,6 @@ export async function compositeSeries(args: {
   const pointsByDate = new Map<string, { [adKey: string]: number | string | null }>();
   for (const m of allMetrics) {
     if (!adKeyById.has(m.adId)) continue;
-    if (m.date < args.fromDate || m.date > args.toDate) continue;
     const cur = pointsByDate.get(m.date) ?? { date: m.date };
     cur[adKeyById.get(m.adId)!] = m.compositeScore;
     pointsByDate.set(m.date, cur);

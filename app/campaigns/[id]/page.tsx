@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { redirect, notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth/current-user";
 import { Shell } from "@/components/layout/shell";
 import { PageHeader } from "@/components/layout/page-header";
@@ -8,10 +8,8 @@ import { Badge, statusVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Stat } from "@/components/ui/stat";
 import { EmptyState } from "@/components/ui/empty-state";
-import { getCampaign, listAudiencesForCampaign } from "@/lib/campaigns/queries";
+import { getCampaignContext, listAudiencesForCampaign } from "@/lib/campaigns/queries";
 import { listAds } from "@/lib/ads/queries";
-import { getArtist } from "@/lib/artists/queries";
-import { getRelease } from "@/lib/releases/queries";
 import { AdCard } from "@/components/campaigns/ad-card";
 import { pauseCampaignAction, resumeCampaignAction, endCampaignAction } from "./actions";
 import { RunDailyLoopButton } from "@/components/campaigns/run-daily-loop-button";
@@ -24,11 +22,8 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
   const user = await currentUser();
   if (!user) redirect("/login");
   const { id } = await params;
-  const campaign = await getCampaign(id);
-  if (!campaign) notFound();
-  const [artist, release, audiences, ads, series, flags] = await Promise.all([
-    getArtist(campaign.artistId),
-    getRelease(campaign.releaseId),
+  const { campaign, artist, release } = await getCampaignContext(id);
+  const [audiences, ads, series, flags] = await Promise.all([
     listAudiencesForCampaign(campaign.id),
     listAds({ campaignId: campaign.id }),
     spendStreamSeries({
