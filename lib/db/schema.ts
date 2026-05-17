@@ -224,3 +224,20 @@ export const llmRuns = pgTable("llm_runs", {
 }));
 
 export type LLMRun = typeof llmRuns.$inferSelect;
+
+export const consumedRejectTokens = pgTable("consumed_reject_tokens", {
+  nonce: text("nonce").primaryKey(),
+  adId: uuid("ad_id").notNull().references(() => ads.id, { onDelete: "cascade" }),
+  consumedAt: timestamp("consumed_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const notifications = pgTable("notifications", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  campaignId: uuid("campaign_id").references(() => campaigns.id, { onDelete: "set null" }),
+  kind: text("kind").notNull(),                     // "daily_digest"
+  sentAt: timestamp("sent_at", { withTimezone: true }).defaultNow().notNull(),
+  payload: jsonb("payload"),
+});
+
+export type ConsumedRejectToken = typeof consumedRejectTokens.$inferSelect;
+export type Notification = typeof notifications.$inferSelect;
