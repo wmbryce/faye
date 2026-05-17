@@ -4,16 +4,70 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 4%;
-    --muted: 240 5% 96%;
-    --muted-foreground: 240 4% 46%;
-    --primary: 240 6% 10%;
-    --primary-foreground: 0 0% 98%;
-    --border: 240 6% 90%;
-    --ring: 240 5% 65%;
+    --background: 240 7% 4%;
+    --foreground: 240 13% 92%;
+    --surface-1: 240 7% 7%;
+    --surface-2: 240 8% 11%;
+    --muted: 240 7% 10%;
+    --muted-foreground: 240 5% 50%;
+    --border-subtle: 240 8% 13%;
+    --border: 240 8% 18%;
+    --accent: 5 88% 68%;
+    --accent-foreground: 240 7% 4%;
+    --success: 142 71% 58%;
+    --warning: 38 92% 50%;
+    --danger: 0 84% 60%;
+    --ring: 5 88% 68%;
     --radius: 0.5rem;
   }
-  * { @apply border-border; }
-  body { @apply bg-background text-foreground; }
+
+  html {
+    color-scheme: dark;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "ss01", "cv11";
+  }
+
+  /* fine selection */
+  ::selection {
+    background: hsl(var(--accent) / 0.35);
+    color: hsl(var(--foreground));
+  }
+
+  /* slimmer scrollbar (webkit) */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 8px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground));
+  }
+}
+
+@layer utilities {
+  /* uppercase label */
+  .label {
+    @apply text-xs uppercase tracking-[0.08em] text-muted-foreground font-medium;
+  }
+  /* hairline */
+  .hairline {
+    @apply border-t border-border-subtle;
+  }
+  /* mono numeric */
+  .num {
+    @apply font-mono tabular-nums;
+  }
 }
