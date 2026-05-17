@@ -50,6 +50,13 @@
       "when": 1779048716959,
       "tag": "0006_wise_red_hulk",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1779049969726,
+      "tag": "0007_sad_cassandra_nova",
+      "breakpoints": true
     }
   ]
 }
