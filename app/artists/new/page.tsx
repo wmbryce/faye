@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth/current-user";
-import { Nav } from "@/components/layout/nav";
+import { Shell } from "@/components/layout/shell";
+import { PageHeader } from "@/components/layout/page-header";
 import { ArtistForm } from "@/components/forms/artist-form";
 import { createArtistAction } from "../actions";
 
@@ -8,12 +9,15 @@ export default async function NewArtistPage() {
   const user = await currentUser();
   if (!user) redirect("/login");
   return (
-    <>
-      <Nav email={user.email} />
-      <main className="max-w-5xl mx-auto px-6 py-10">
-        <h1 className="text-2xl font-semibold mb-6">New artist</h1>
+    <Shell email={user.email}>
+      <PageHeader
+        eyebrow="Roster"
+        title="New artist"
+        description="Spotify ID + timezone are required. Voice guide is optional but materially improves LLM-generated ad copy."
+      />
+      <div className="mt-8">
         <ArtistForm action={createArtistAction} submitLabel="Create artist" />
-      </main>
-    </>
+      </div>
+    </Shell>
   );
 }

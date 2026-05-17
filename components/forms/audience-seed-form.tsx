@@ -1,4 +1,7 @@
 import { Button } from "@/components/ui/button";
+import { Field } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 const PLACEHOLDER = `{
   "geo": { "countries": ["US", "CA"] },
@@ -9,22 +12,27 @@ const PLACEHOLDER = `{
 
 export function AudienceSeedForm({ action }: { action: (fd: FormData) => Promise<void> }) {
   return (
-    <form action={action} className="space-y-4 max-w-2xl">
-      <label className="block">
-        <span className="text-sm">Name</span>
-        <input name="name" required className="mt-1 w-full h-9 px-3 border border-border rounded-md bg-background" />
-      </label>
-      <label className="block">
-        <span className="text-sm">Targeting spec (JSON)</span>
-        <textarea
+    <form action={action} className="space-y-5 max-w-2xl">
+      <Field label="Name" htmlFor="name" hint="Short label you'll recognize in dashboards.">
+        <Input id="name" name="name" required placeholder="indie folk US 25-44" />
+      </Field>
+      <Field
+        label="Targeting spec (JSON)"
+        htmlFor="targetingSpec"
+        hint="Validated by Zod. geo.countries (ISO-2) required; age_min/age_max/interests/lookalikes/languages optional."
+      >
+        <Textarea
+          id="targetingSpec"
           name="targetingSpec"
           required
-          rows={12}
+          rows={14}
           defaultValue={PLACEHOLDER}
-          className="mt-1 w-full px-3 py-2 font-mono text-sm border border-border rounded-md bg-background"
+          className="font-mono text-sm"
         />
-      </label>
-      <Button type="submit">Add seed</Button>
+      </Field>
+      <div className="flex justify-end pt-2">
+        <Button type="submit">Add seed</Button>
+      </div>
     </form>
   );
 }

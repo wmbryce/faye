@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
 import { currentUser } from "@/lib/auth/current-user";
-import { Nav } from "@/components/layout/nav";
+import { Shell } from "@/components/layout/shell";
+import { PageHeader } from "@/components/layout/page-header";
 import { getArtist } from "@/lib/artists/queries";
 import { listAudienceSeeds } from "@/lib/audiences/queries";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { archiveSeedAction } from "./actions";
 
 export default async function AudiencesPage({ params }: { params: Promise<{ id: string }> }) {
@@ -15,29 +18,55 @@ export default async function AudiencesPage({ params }: { params: Promise<{ id: 
   if (!artist) notFound();
   const rows = await listAudienceSeeds(id);
   return (
-    <>
-      <Nav email={user.email} />
-      <main className="max-w-5xl mx-auto px-6 py-10">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-semibold">{artist.name} — audience seeds</h1>
-          <Link href={`/artists/${id}/audiences/new`}><Button>Add seed</Button></Link>
-        </div>
+    <Shell email={user.email}>
+      <PageHeader
+        eyebrow={artist.name}
+        title="Audience seeds"
+        description="Reusable FB targeting specs. Pick 1–5 per campaign; Faye splits budget across them and reweighs daily."
+        actions={
+          <Link href={`/artists/${id}/audiences/new`}>
+            <Button>+ Add seed</Button>
+          </Link>
+        }
+      />
+      <div className="mt-8">
         {rows.length === 0 ? (
-          <p className="text-muted-foreground">No audience seeds yet.</p>
+          <EmptyState
+            title="No audience seeds yet"
+            description="Add a JSON targeting spec (interests, geo, age) so Faye has something to target."
+            action={
+              <Link href={`/artists/${id}/audiences/new`}>
+                <Button>+ Add seed</Button>
+              </Link>
+            }
+          />
         ) : (
           <ul className="space-y-3">
             {rows.map((s) => (
-              <li key={s.id} className="border border-border rounded-md p-4">
-                <div className="font-medium mb-2">{s.name}</div>
-                <pre className="text-xs overflow-x-auto bg-muted p-3 rounded">{JSON.stringify(s.targetingSpec, null, 2)}</pre>
-                <form action={archiveSeedAction.bind(null, id, s.id)} className="mt-3">
-                  <button type="submit" className="text-xs underline text-muted-foreground hover:text-red-600">Archive</button>
-                </form>
+              <li key={s.id}>
+                <Card>
+                  <CardContent className="p-5">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="font-medium">{s.name}</div>
+                      <form action={archiveSeedAction.bind(null, id, s.id)}>
+                        <button
+                          type="submit"
+                          className="text-xs text-muted-foreground hover:text-danger transition-colors"
+                        >
+                          Archive
+                        </button>
+                      </form>
+                    </div>
+                    <pre className="mt-3 text-xs overflow-x-auto bg-surface-2 border border-border-subtle rounded-md p-3 font-mono">
+                      {JSON.stringify(s.targetingSpec, null, 2)}
+                    </pre>
+                  </CardContent>
+                </Card>
               </li>
             ))}
           </ul>
         )}
-      </main>
-    </>
+      </div>
+    </Shell>
   );
 }
