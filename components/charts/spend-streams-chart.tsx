@@ -34,7 +34,7 @@ export function SpendStreamsChart({ data }: { data: SpendStreamsPoint[] }) {
             <ReferenceLine yAxisId="right" y={baseline} stroke="hsl(var(--muted-foreground))" strokeDasharray="4 4" label={{ value: "baseline", fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
           )}
           <Line yAxisId="left" type="monotone" dataKey="spendUsd" name="Spend ($)" stroke="hsl(var(--foreground))" strokeWidth={2} dot={false} />
-          <Line yAxisId="right" type="monotone" dataKey="streams" name="Streams" stroke="hsl(var(--accent))" strokeWidth={2} dot={false} connectNulls />
+          <Line yAxisId="right" type="monotone" dataKey="streams" name="Streams" stroke="hsl(var(--accent))" strokeWidth={2} dot={false} />
         </LineChart>
       </ResponsiveContainer>
     </div>

@@ -44,4 +44,6 @@ Prereqs on the deploy box:
 - `b2` CLI installed + authorized for the `faye-backups` bucket
 - `BACKUP_BUCKET` (defaults to `faye-backups`) settable via env
 
+> Ensure `/opt/faye/.env` is `chmod 600` and owned by the `faye` user; `backup.sh` sources it via `set -o allexport` and the resulting process env briefly carries `DATABASE_URL`.
+
 Restore drill: `b2 file download b2://faye-backups/db/<file>.sql.gz - | gunzip | psql faye_dev` against a scratch DB. Run weekly during the first month to verify.

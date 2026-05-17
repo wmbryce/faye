@@ -130,6 +130,7 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
             <SpendStreamsChart data={chartData} />
           </CardContent>
         </Card>
+        {/* TODO: audience-budget chart pending audience_budget_daily snapshot — see plan 8 task 3 */}
       </section>
 
       <section className="mt-10">

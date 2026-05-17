@@ -78,7 +78,7 @@ export default async function CostsPage({ params }: { params: Promise<{ id: stri
         <Card><CardContent className="p-5"><Stat label="Ad spend" value={`$${(totalAdSpendCents / 100).toFixed(2)}`} /></CardContent></Card>
         <Card><CardContent className="p-5"><Stat label="LLM cost" value={`$${(totalLLMCents / 100).toFixed(2)}`} /></CardContent></Card>
         <Card><CardContent className="p-5"><Stat label="Total" value={`$${(totalCents / 100).toFixed(2)}`} /></CardContent></Card>
-        <Card><CardContent className="p-5"><Stat label="Cost / stream" value={costPerStreamCents == null ? "—" : `$${(costPerStreamCents / 100).toFixed(3)}`} hint={totalStreamsDelta > 0 ? `${totalStreamsDelta} streams above baseline` : "no streams above baseline"} /></CardContent></Card>
+        <Card><CardContent className="p-5"><Stat label="Cost / incremental stream" value={costPerStreamCents == null ? "—" : `$${(costPerStreamCents / 100).toFixed(3)}`} hint={totalStreamsDelta > 0 ? `${totalStreamsDelta} streams above baseline` : "no streams above baseline"} /></CardContent></Card>
       </section>
 
       <section className="mt-10">

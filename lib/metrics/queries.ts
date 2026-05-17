@@ -36,7 +36,7 @@ export async function getCampaignDegradedFlags(args: {
   toDate: string;
 }): Promise<DegradedFlags> {
   const [streamRows, fraudRows] = await Promise.all([
-    db.select({ source: releaseMetricDaily.source })
+    db.select({ source: releaseMetricDaily.source, date: releaseMetricDaily.date })
       .from(releaseMetricDaily)
       .where(and(
         eq(releaseMetricDaily.releaseId, args.releaseId),
@@ -54,7 +54,9 @@ export async function getCampaignDegradedFlags(args: {
       )),
   ]);
 
-  const s4aMissing = streamRows.length === 0 || streamRows.some((r) => r.source !== "s4a");
+  const sortedByDate = [...streamRows].sort((a, b) => b.date.localeCompare(a.date));
+  const mostRecent = sortedByDate[0];
+  const s4aMissing = !mostRecent || mostRecent.source !== "s4a";
   return { s4aMissing, fraudExcluded: fraudRows.length };
 }
 

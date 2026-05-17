@@ -1,4 +1,4 @@
-import { and, eq, desc, isNotNull, sql } from "drizzle-orm";
+import { and, eq, desc, isNotNull, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { ads, audiences, assets, adMetricDaily, type Ad, AD_STATUS } from "@/lib/db/schema";
 
@@ -70,12 +70,15 @@ export async function listAdsRichForCampaign(campaignId: string): Promise<AdRowS
     .groupBy(ads.id, audiences.name)
     .orderBy(desc(ads.createdAt));
 
-  // Latest composite per ad: separate query
-  const latestComp = await db
-    .select({ adId: adMetricDaily.adId, date: adMetricDaily.date, compositeScore: adMetricDaily.compositeScore })
-    .from(adMetricDaily)
-    .where(isNotNull(adMetricDaily.compositeScore))
-    .orderBy(desc(adMetricDaily.date));
+  // Latest composite per ad: separate query, scoped to this campaign's ads
+  const campaignAdIds = rows.map((r) => r.ad.id);
+  const latestComp = campaignAdIds.length === 0
+    ? []
+    : await db
+        .select({ adId: adMetricDaily.adId, compositeScore: adMetricDaily.compositeScore })
+        .from(adMetricDaily)
+        .where(and(isNotNull(adMetricDaily.compositeScore), inArray(adMetricDaily.adId, campaignAdIds)))
+        .orderBy(desc(adMetricDaily.date));
   const latestByAd = new Map<string, number>();
   for (const r of latestComp) {
     if (r.compositeScore != null && !latestByAd.has(r.adId)) latestByAd.set(r.adId, r.compositeScore);

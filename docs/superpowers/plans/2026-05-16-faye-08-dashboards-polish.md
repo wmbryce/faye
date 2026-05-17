@@ -134,6 +134,8 @@ If `audience_budget_daily` doesn't exist yet, add it now via a small migration +
 
 Commit `composite + audience charts`.
 
+**Deferred** — audience-budget chart requires an `audience_budget_daily` snapshot table written each day by the bandit step's reweight loop. Add as a follow-up before that snapshot exists; the composite chart is sufficient for v1.
+
 ---
 
 ### Task 4: Rich ad table
