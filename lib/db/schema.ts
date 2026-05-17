@@ -224,3 +224,40 @@ export const llmRuns = pgTable("llm_runs", {
 }));
 
 export type LLMRun = typeof llmRuns.$inferSelect;
+
+export const consumedRejectTokens = pgTable("consumed_reject_tokens", {
+  nonce: text("nonce").primaryKey(),
+  adId: uuid("ad_id").notNull().references(() => ads.id, { onDelete: "cascade" }),
+  consumedAt: timestamp("consumed_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const notifications = pgTable("notifications", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  campaignId: uuid("campaign_id").references(() => campaigns.id, { onDelete: "set null" }),
+  kind: text("kind", { enum: ["daily_digest"] }).notNull(),
+  sentAt: timestamp("sent_at", { withTimezone: true }).defaultNow().notNull(),
+  payload: jsonb("payload"),
+}, (t) => ({
+  kindChk: check("notifications_kind_chk", sql`${t.kind} IN ('daily_digest')`),
+}));
+
+export type ConsumedRejectToken = typeof consumedRejectTokens.$inferSelect;
+export type Notification = typeof notifications.$inferSelect;
+
+export const AD_STATUS = {
+  draft: "draft",
+  pending: "pending",
+  published: "published",
+  rejected: "rejected",
+  paused: "paused",
+  killed: "killed",
+} as const;
+export type AdStatus = typeof AD_STATUS[keyof typeof AD_STATUS];
+
+export const CAMPAIGN_STATUS = {
+  draft: "draft",
+  active: "active",
+  paused: "paused",
+  ended: "ended",
+} as const;
+export type CampaignStatus = typeof CAMPAIGN_STATUS[keyof typeof CAMPAIGN_STATUS];

@@ -1,0 +1,1 @@
+ALTER TABLE "notifications" ADD CONSTRAINT "notifications_kind_chk" CHECK ("notifications"."kind" IN ('daily_digest'));

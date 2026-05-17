@@ -5,11 +5,12 @@ import { runBanditStep } from "@/lib/bandit/step";
 import { publisherTick } from "@/lib/publisher/tick";
 import { runDailyLoop } from "@/lib/loop/daily";
 import { yesterdayISO } from "@/scripts/_shared";
+import { listCampaignIdsWithPendingAds, runDigest } from "@/lib/email/digest/run";
 
-type Script = "metrics-pull" | "bandit-step" | "publish-tick" | "daily";
+type Script = "metrics-pull" | "bandit-step" | "publish-tick" | "daily" | "digest";
 
 function isScript(s: string): s is Script {
-  return s === "metrics-pull" || s === "bandit-step" || s === "publish-tick" || s === "daily";
+  return s === "metrics-pull" || s === "bandit-step" || s === "publish-tick" || s === "daily" || s === "digest";
 }
 
 export async function POST(req: Request, ctx: { params: Promise<{ script: string }> }) {
@@ -28,6 +29,14 @@ export async function POST(req: Request, ctx: { params: Promise<{ script: string
     if (script === "publish-tick") {
       const r = await publisherTick();
       return NextResponse.json(r);
+    }
+    if (script === "digest") {
+      const resolvedDate = date ?? yesterdayISO();
+      const campaignIds = campaignId
+        ? [campaignId]
+        : await listCampaignIdsWithPendingAds();
+      const result = await runDigest({ campaignIds, date: resolvedDate });
+      return NextResponse.json(result);
     }
     if (!campaignId) {
       return NextResponse.json({ error: "campaignId required for this script" }, { status: 400 });

@@ -7,7 +7,7 @@ describe("localHour", () => {
     expect(localHour(new Date("2026-06-15T15:00:00Z"), "America/Denver")).toBe(9);
   });
 
-  it("UTC 14:00 in winter → 08:00 in America/Denver", () => {
+  it("UTC 15:00 in winter → 08:00 in America/Denver", () => {
     // January 2026: America/Denver is MST (UTC-7)
     expect(localHour(new Date("2026-01-15T15:00:00Z"), "America/Denver")).toBe(8);
   });

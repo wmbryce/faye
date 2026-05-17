@@ -132,7 +132,8 @@ export async function runDailyLoop(args: RunDailyLoopArgs): Promise<RunDailyLoop
 
     const survivors = ranked.slice(0, DEFAULTS.K_SURVIVORS).map(toCritiqueAd);
     const killedCount = Math.min(3, Math.max(0, ranked.length - DEFAULTS.K_SURVIVORS));
-    const killed = ranked.slice(-killedCount).map(toCritiqueAd);
+    // `slice(-0)` === `slice(0)` returns the whole array — guard so killedCount === 0 gives [].
+    const killed = killedCount > 0 ? ranked.slice(-killedCount).map(toCritiqueAd) : [];
 
     // c. Top survivor's ad ID for parentAdId
     const topSurvivorId = ranked[0]?.ad?.id ?? null;

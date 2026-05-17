@@ -148,3 +148,74 @@ export async function killAdById(campaignId: string, adId: string): Promise<void
 function absoluteAssetUrl(relative: string): string {
   return `${env().APP_URL}${relative}`;
 }
+
+export async function approvePendingAd(campaignId: string, adId: string): Promise<void> {
+  const newPublishAt = new Date();
+  // Single conditional UPDATE so two concurrent approve/reject clicks can't
+  // both pass a pre-check and apply conflicting writes.
+  const [updated] = await db
+    .update(ads)
+    .set({ publishAt: newPublishAt })
+    .where(and(eq(ads.id, adId), eq(ads.campaignId, campaignId), eq(ads.status, "pending")))
+    .returning({ id: ads.id });
+  if (!updated) throw new Error("cannot approve ad: not pending or not in this campaign");
+  await writeAudit({
+    entityType: "ad",
+    entityId: adId,
+    event: "approved_in_app",
+    payload: { newPublishAt: newPublishAt.toISOString() },
+  });
+}
+
+/**
+ * Email-reject path. Only flips status when the ad is still pre-publish
+ * (draft/pending). If the ad is already on FB (published/paused/killed) we
+ * audit a no-op so DB never diverges from remote state — but still return
+ * normally so the operator gets confirmation feedback.
+ */
+export async function markAdRejected(adId: string, reason: string, source: "email" | "in-app"): Promise<void> {
+  const updated = await db
+    .update(ads)
+    .set({
+      status: "rejected",
+      rejectedAt: new Date(),
+      rejectedReason: reason,
+    })
+    .where(and(eq(ads.id, adId), inArray(ads.status, ["draft", "pending"] as const)))
+    .returning({ id: ads.id });
+  if (updated.length > 0) {
+    await writeAudit({
+      entityType: "ad",
+      entityId: adId,
+      event: source === "email" ? "rejected_via_email" : "rejected_in_app",
+      payload: { reason, source },
+    });
+    return;
+  }
+  const [current] = await db.select({ status: ads.status }).from(ads).where(eq(ads.id, adId)).limit(1);
+  await writeAudit({
+    entityType: "ad",
+    entityId: adId,
+    event: "reject_no_op",
+    payload: { reason, source, currentStatus: current?.status ?? "missing" },
+  });
+}
+
+export async function rejectPendingAd(campaignId: string, adId: string): Promise<void> {
+  const updated = await db
+    .update(ads)
+    .set({
+      status: "rejected",
+      rejectedAt: new Date(),
+      rejectedReason: "operator-in-app",
+    })
+    .where(and(eq(ads.id, adId), eq(ads.campaignId, campaignId), eq(ads.status, "pending")))
+    .returning({ id: ads.id });
+  if (!updated.length) throw new Error("cannot reject ad: not pending or not in this campaign");
+  await writeAudit({
+    entityType: "ad",
+    entityId: adId,
+    event: "rejected_in_app",
+    payload: { reason: "operator-in-app", source: "in-app" },
+  });
+}
