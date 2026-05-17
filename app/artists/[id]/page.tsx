@@ -30,9 +30,14 @@ export default async function ArtistDetailPage({ params }: { params: Promise<{ i
         title={artist.name}
         description={artist.timezone}
         actions={
-          <Link href={`/artists/${artist.id}/edit`}>
-            <Button variant="outline" size="sm">Edit</Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link href={`/artists/${artist.id}/campaigns/new`}>
+              <Button size="sm">New campaign</Button>
+            </Link>
+            <Link href={`/artists/${artist.id}/edit`}>
+              <Button variant="outline" size="sm">Edit</Button>
+            </Link>
+          </div>
         }
       />
 

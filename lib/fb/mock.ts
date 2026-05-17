@@ -14,6 +14,8 @@ export function makeFBMockClient(overrides?: {
     async pauseAd() { /* noop */ },
     async archiveAd() { /* noop */ },
     async setAdSetDailyBudget() { /* noop */ },
+    async pauseAdSet() { /* noop */ },
+    async resumeAdSet() { /* noop */ },
     async getAdInsights(adId, date) {
       return overrides?.insights?.(adId, date) ?? null;
     },
