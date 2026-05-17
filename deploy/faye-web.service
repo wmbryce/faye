@@ -1,0 +1,15 @@
+[Unit]
+Description=Faye web (Next.js)
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=faye
+WorkingDirectory=/opt/faye
+EnvironmentFile=/opt/faye/.env
+ExecStart=/usr/bin/pnpm start
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
