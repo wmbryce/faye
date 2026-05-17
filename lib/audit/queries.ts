@@ -11,9 +11,8 @@ export async function listAuditFor(
   opts?: { limit?: number },
 ): Promise<AuditLogEntry[]> {
   const raw = opts?.limit;
-  const limit = Number.isFinite(raw) && raw! > 0
-    ? Math.min(Math.floor(raw!), MAX_LIMIT)
-    : DEFAULT_LIMIT;
+  const parsed = Number.isFinite(raw) ? Math.floor(raw!) : NaN;
+  const limit = parsed > 0 ? Math.min(parsed, MAX_LIMIT) : DEFAULT_LIMIT;
   return db
     .select()
     .from(auditLog)

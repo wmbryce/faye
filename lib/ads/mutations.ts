@@ -20,6 +20,10 @@ export type CreateDraftAdInput = {
 };
 
 export async function createDraftAd(input: CreateDraftAdInput): Promise<Ad> {
+  const generation = input.generation ?? 0;
+  if (!Number.isInteger(generation) || generation < 0) {
+    throw new Error("generation must be a non-negative integer");
+  }
   if (!input.copyHeadline.trim()) throw new Error("copyHeadline required");
   if (input.copyHeadline.length > HEADLINE_MAX) {
     throw new Error(`copyHeadline > ${HEADLINE_MAX} chars`);
@@ -45,7 +49,7 @@ export async function createDraftAd(input: CreateDraftAdInput): Promise<Ad> {
     campaignId: input.campaignId,
     audienceId: input.audienceId,
     assetId: input.assetId,
-    generation: input.generation ?? 0,
+    generation,
     copyHeadline: input.copyHeadline,
     copyPrimaryText: input.copyPrimaryText,
     copyBody: input.copyBody,
