@@ -1,0 +1,1 @@
+ALTER TABLE "release_metric_daily" ADD CONSTRAINT "release_metric_daily_source_chk" CHECK ("release_metric_daily"."source" IN ('s4a','web_estimate'));

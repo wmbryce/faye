@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, integer, jsonb, boolean, date, check, index, type AnyPgColumn } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, uuid, integer, jsonb, boolean, date, real, unique, check, index, type AnyPgColumn } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import type { TargetingSpec } from "@/lib/audiences/spec";
 
@@ -145,6 +145,7 @@ export const ads = pgTable("ads", {
   campaignCreatedIdx: index("ads_campaign_created_idx").on(t.campaignId, t.createdAt.desc()),
   audienceCreatedIdx: index("ads_audience_created_idx").on(t.audienceId, t.createdAt.desc()),
   parentAdIdx: index("ads_parent_ad_id_idx").on(t.parentAdId),
+  statusPublishAtIdx: index("ads_status_publish_at_idx").on(t.status, t.publishAt),
 }));
 
 export const auditLog = pgTable("audit_log", {
@@ -162,3 +163,33 @@ export type Campaign = typeof campaigns.$inferSelect;
 export type Audience = typeof audiences.$inferSelect;
 export type Ad = typeof ads.$inferSelect;
 export type AuditLogEntry = typeof auditLog.$inferSelect;
+
+export const adMetricDaily = pgTable("ad_metric_daily", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  adId: uuid("ad_id").notNull().references(() => ads.id, { onDelete: "cascade" }),
+  date: date("date").notNull(),
+  spendCents: integer("spend_cents").notNull().default(0),
+  impressions: integer("impressions").notNull().default(0),
+  fbLinkClicks: integer("fb_link_clicks").notNull().default(0),
+  smartlinkClicks: integer("smartlink_clicks").notNull().default(0),
+  smartlinkStreams: integer("smartlink_streams"),
+  compositeScore: real("composite_score"),
+  excludedReason: text("excluded_reason"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({ adDateUnq: unique().on(t.adId, t.date) }));
+
+export const releaseMetricDaily = pgTable("release_metric_daily", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  releaseId: uuid("release_id").notNull().references(() => releases.id, { onDelete: "cascade" }),
+  date: date("date").notNull(),
+  spotifyStreams: integer("spotify_streams"),
+  spotifyListeners: integer("spotify_listeners"),
+  source: text("source", { enum: ["s4a", "web_estimate"] }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  releaseDateUnq: unique().on(t.releaseId, t.date),
+  sourceChk: check("release_metric_daily_source_chk", sql`${t.source} IN ('s4a','web_estimate')`),
+}));
+
+export type AdMetricDaily = typeof adMetricDaily.$inferSelect;
+export type ReleaseMetricDaily = typeof releaseMetricDaily.$inferSelect;
