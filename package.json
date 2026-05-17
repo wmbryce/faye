@@ -16,6 +16,7 @@
     "db:reset": "tsx scripts/db-reset.ts"
   },
   "dependencies": {
+    "@react-email/components": "^1.0.12",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.36.0",
@@ -30,6 +31,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@react-email/render": "^2.0.8",
     "@types/node": "^22.7.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
