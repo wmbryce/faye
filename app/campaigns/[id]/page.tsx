@@ -13,6 +13,7 @@ import { listAds } from "@/lib/ads/queries";
 import { getArtist } from "@/lib/artists/queries";
 import { getRelease } from "@/lib/releases/queries";
 import { AdCard } from "@/components/campaigns/ad-card";
+import { pauseCampaignAction, resumeCampaignAction, endCampaignAction } from "./actions";
 
 export default async function CampaignDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await currentUser();
@@ -34,8 +35,6 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
     adsByAudience.set(a.audienceId, list);
   }
 
-  const lifecycleDisabled = campaign.status === "ended";
-
   return (
     <Shell email={user.email}>
       <PageHeader
@@ -52,10 +51,24 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
             <Link href={`/campaigns/${campaign.id}/ads/new`}>
               <Button size="sm">+ New ad</Button>
             </Link>
-            {/* Lifecycle wired in T8 */}
-            <Button variant="outline" size="sm" disabled>Pause</Button>
-            <Button variant="outline" size="sm" disabled>Resume</Button>
-            <Button variant="destructive" size="sm" disabled={lifecycleDisabled}>End</Button>
+            {campaign.status === "active" && (
+              <form action={pauseCampaignAction.bind(null, campaign.id)}>
+                <Button type="submit" variant="outline" size="sm">Pause</Button>
+              </form>
+            )}
+            {campaign.status === "paused" && (
+              <form action={resumeCampaignAction.bind(null, campaign.id)}>
+                <Button type="submit" variant="outline" size="sm">Resume</Button>
+              </form>
+            )}
+            {(campaign.status === "active" || campaign.status === "paused" || campaign.status === "draft") && (
+              <form action={endCampaignAction.bind(null, campaign.id)}>
+                <Button type="submit" variant="destructive" size="sm">End</Button>
+              </form>
+            )}
+            <Link href={`/campaigns/${campaign.id}/audit`}>
+              <Button variant="ghost" size="sm">Audit log →</Button>
+            </Link>
           </div>
         }
       />
