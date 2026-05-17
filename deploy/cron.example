@@ -1,0 +1,11 @@
+# Faye system crontab (Hetzner CX22)
+# Place under /etc/cron.d/faye or `crontab -u faye -e`. All times UTC.
+
+# Publisher tick — every 5 minutes. Publishes any pending ads whose publishAt has elapsed.
+*/5 * * * * cd /opt/faye && /usr/bin/pnpm exec tsx scripts/publish-tick.ts >> /var/log/faye/publish.log 2>&1
+
+# Metrics pull — daily for all active campaigns. Defaults to yesterday's date.
+0 8 * * * cd /opt/faye && /usr/bin/pnpm exec tsx scripts/metrics-pull.ts --all >> /var/log/faye/metrics.log 2>&1
+
+# Bandit step — daily, 30 min after metrics pull. Same default date semantics.
+30 8 * * * cd /opt/faye && /usr/bin/pnpm exec tsx scripts/bandit-step.ts --all >> /var/log/faye/bandit.log 2>&1
