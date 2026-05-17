@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getCampaign } from "@/lib/campaigns/queries";
-import { listAuditFor } from "@/lib/audit/queries";
+import { listAuditForCampaignAndAds } from "@/lib/audit/queries";
 import { getArtist } from "@/lib/artists/queries";
 import { getRelease } from "@/lib/releases/queries";
 
@@ -20,7 +20,7 @@ export default async function CampaignAuditPage({ params }: { params: Promise<{ 
   const [artist, release, entries] = await Promise.all([
     getArtist(campaign.artistId),
     getRelease(campaign.releaseId),
-    listAuditFor("campaign", id, { limit: 500 }),
+    listAuditForCampaignAndAds(id, 500),
   ]);
 
   return (
@@ -28,7 +28,7 @@ export default async function CampaignAuditPage({ params }: { params: Promise<{ 
       <PageHeader
         eyebrow={`${artist?.name} — ${release?.title}`}
         title="Audit log"
-        description="Every mutating action on this campaign, most recent first."
+        description="Campaign and ad events, most recent first."
         actions={
           <Link href={`/campaigns/${id}`}>
             <span className="text-sm text-muted-foreground hover:text-foreground transition-colors">← Back to campaign</span>
@@ -45,7 +45,9 @@ export default async function CampaignAuditPage({ params }: { params: Promise<{ 
                 {entries.map((e) => (
                   <li key={e.id} className="px-5 py-3 text-sm">
                     <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                        <Badge variant={e.entityType === "campaign" ? "accent" : "muted"}>{e.entityType}</Badge>
+                        <span className="font-mono text-xs text-muted-foreground border border-border-subtle bg-surface-2 rounded px-1.5 py-0.5">{e.entityId}</span>
                         <Badge variant="muted">{e.event}</Badge>
                         <span className="font-mono text-xs text-muted-foreground">{e.createdAt.toISOString()}</span>
                       </div>

@@ -15,6 +15,8 @@ import { getRelease } from "@/lib/releases/queries";
 import { AdCard } from "@/components/campaigns/ad-card";
 import { pauseCampaignAction, resumeCampaignAction, endCampaignAction } from "./actions";
 import { RunDailyLoopButton } from "@/components/campaigns/run-daily-loop-button";
+import { SpendStreamsChart } from "@/components/charts/spend-streams-chart";
+import { spendStreamSeries } from "@/lib/metrics/timeseries";
 
 export default async function CampaignDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await currentUser();
@@ -22,12 +24,25 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
   const { id } = await params;
   const campaign = await getCampaign(id);
   if (!campaign) notFound();
-  const [artist, release, audiences, ads] = await Promise.all([
+  const [artist, release, audiences, ads, series] = await Promise.all([
     getArtist(campaign.artistId),
     getRelease(campaign.releaseId),
     listAudiencesForCampaign(campaign.id),
     listAds({ campaignId: campaign.id }),
+    spendStreamSeries({
+      campaignId: campaign.id,
+      releaseId: campaign.releaseId,
+      campaignStartDate: campaign.startDate,
+      fromDate: campaign.startDate,
+      toDate: campaign.endDate,
+    }),
   ]);
+  const chartData = series.map((p) => ({
+    date: p.date,
+    spendUsd: p.spendCents / 100,
+    streams: p.streams,
+    baseline: p.baseline,
+  }));
 
   const adsByAudience = new Map<string, typeof ads>();
   for (const a of ads) {
@@ -74,6 +89,9 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
             <Link href={`/campaigns/${campaign.id}/audit`}>
               <Button variant="ghost" size="sm">Audit log →</Button>
             </Link>
+            <Link href={`/campaigns/${campaign.id}/costs`}>
+              <Button variant="ghost" size="sm">Costs →</Button>
+            </Link>
           </div>
         }
       />
@@ -92,6 +110,14 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
         <Card>
           <CardContent className="p-5">
             <Stat label="Ads" value={ads.length} />
+          </CardContent>
+        </Card>
+      </section>
+
+      <section className="mt-8">
+        <Card>
+          <CardContent className="p-5">
+            <SpendStreamsChart data={chartData} />
           </CardContent>
         </Card>
       </section>
