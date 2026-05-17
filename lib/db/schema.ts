@@ -65,3 +65,25 @@ export type Artist = typeof artists.$inferSelect;
 export type Asset = typeof assets.$inferSelect;
 export type Release = typeof releases.$inferSelect;
 export type AudienceSeed = typeof audienceSeeds.$inferSelect;
+
+export const secrets = pgTable("secrets", {
+  key: text("key").primaryKey(),
+  cipherText: text("cipher_text").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const externalCalls = pgTable("external_calls", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  service: text("service").notNull(),
+  endpoint: text("endpoint").notNull(),
+  method: text("method").notNull(),
+  status: integer("status"),
+  durationMs: integer("duration_ms"),
+  error: text("error"),
+  requestSummary: jsonb("request_summary"),
+  responseSummary: jsonb("response_summary"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export type Secret = typeof secrets.$inferSelect;
+export type ExternalCall = typeof externalCalls.$inferSelect;

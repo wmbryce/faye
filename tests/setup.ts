@@ -12,7 +12,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  await sql`TRUNCATE TABLE sessions, audience_seeds, releases, assets, artists, users RESTART IDENTITY CASCADE`;
+  await sql`TRUNCATE TABLE sessions, external_calls, secrets, audience_seeds, releases, assets, artists, users RESTART IDENTITY CASCADE`;
   // Tests that write to uploads/ should not leak between runs.
   const files = await readdir(UPLOAD_DIR).catch(() => []);
   await Promise.all(
