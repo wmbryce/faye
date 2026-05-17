@@ -41,6 +41,6 @@ describe("secrets store", () => {
   it("listSecretKeys returns sorted keys", async () => {
     await setSecret("b", "x");
     await setSecret("a", "x");
-    expect((await listSecretKeys()).sort()).toEqual(["a", "b"]);
+    expect(await listSecretKeys()).toEqual(["a", "b"]);
   });
 });

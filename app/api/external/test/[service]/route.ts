@@ -4,7 +4,6 @@ import { getSecret } from "@/lib/secrets/queries";
 import { makeOpenRouterClient } from "@/lib/llm/openrouter";
 import { makeFeatureFmClient } from "@/lib/smartlink/featurefm";
 import { makeSpotifyWebClient } from "@/lib/spotify/web";
-import { makeFBRealClient } from "@/lib/fb/real";
 import { env } from "@/lib/env";
 
 const PROBES: Record<string, () => Promise<{ ok: boolean; detail?: string }>> = {
@@ -48,18 +47,18 @@ const PROBES: Record<string, () => Promise<{ ok: boolean; detail?: string }>> = 
     const adAccountId = await getSecret("fb.ad_account_id");
     if (!token) return { ok: false, detail: "missing fb.access_token" };
     if (!adAccountId) return { ok: false, detail: "missing fb.ad_account_id" };
-    const c = makeFBRealClient({ accessToken: token });
+    const stripped = adAccountId.startsWith("act_") ? adAccountId.slice(4) : adAccountId;
     try {
-      // Probe by calling getAdInsights against a known-bad ad ID — we expect either null
-      // (recognized auth, no ad) or a clean throw. Either way, auth is verified by the
-      // shape of the error.
-      await c.getAdInsights("0", new Date().toISOString().slice(0, 10));
-      return { ok: true, detail: "token + ad-account accepted" };
+      const url = `https://graph.facebook.com/v21.0/act_${encodeURIComponent(stripped)}?fields=name,currency&access_token=${encodeURIComponent(token)}`;
+      const res = await fetch(url, { method: "GET" });
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        return { ok: false, detail: `fb /act_${stripped}: ${res.status} ${text.slice(0, 200)}` };
+      }
+      const j = (await res.json()) as { name?: string; currency?: string };
+      return { ok: true, detail: `account=${j.name ?? "?"} currency=${j.currency ?? "?"}` };
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      // 400 = bad ad ID but token OK; 401 = bad token
-      if (/: 400 /.test(msg)) return { ok: true, detail: "token accepted (400 on probe ad id is expected)" };
-      return { ok: false, detail: msg };
+      return { ok: false, detail: e instanceof Error ? e.message : String(e) };
     }
   },
 };
