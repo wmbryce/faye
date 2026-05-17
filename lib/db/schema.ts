@@ -1,4 +1,5 @@
 import { pgTable, text, timestamp, uuid, integer, jsonb, boolean, date } from "drizzle-orm/pg-core";
+import type { TargetingSpec } from "@/lib/audiences/spec";
 
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -55,7 +56,7 @@ export const audienceSeeds = pgTable("audience_seeds", {
   id: uuid("id").defaultRandom().primaryKey(),
   artistId: uuid("artist_id").notNull().references(() => artists.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
-  targetingSpec: jsonb("targeting_spec").notNull(),
+  targetingSpec: jsonb("targeting_spec").$type<TargetingSpec>().notNull(),
   archived: boolean("archived").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });

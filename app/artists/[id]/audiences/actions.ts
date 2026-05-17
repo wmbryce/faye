@@ -7,6 +7,7 @@ import { createAudienceSeed, archiveAudienceSeed } from "@/lib/audiences/mutatio
 export async function createSeedAction(artistId: string, formData: FormData) {
   if (!(await currentUser())) throw new Error("unauthorized");
   const name = String(formData.get("name") ?? "").trim();
+  if (!name) throw new Error("name is required");
   const rawJson = String(formData.get("targetingSpec") ?? "");
   let spec: unknown;
   try { spec = JSON.parse(rawJson); } catch { throw new Error("invalid JSON"); }
@@ -17,6 +18,6 @@ export async function createSeedAction(artistId: string, formData: FormData) {
 
 export async function archiveSeedAction(artistId: string, seedId: string) {
   if (!(await currentUser())) throw new Error("unauthorized");
-  await archiveAudienceSeed(seedId);
+  await archiveAudienceSeed({ artistId, seedId });
   revalidatePath(`/artists/${artistId}/audiences`);
 }

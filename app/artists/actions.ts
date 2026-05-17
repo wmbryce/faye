@@ -13,9 +13,11 @@ export async function createArtistAction(formData: FormData) {
   await requireUser();
   const name = String(formData.get("name") ?? "").trim();
   const spotifyArtistId = String(formData.get("spotifyArtistId") ?? "").trim();
-  const timezone = String(formData.get("timezone") ?? "America/Denver");
+  const timezone = String(formData.get("timezone") ?? "America/Denver").trim();
   const voiceGuide = String(formData.get("voiceGuide") ?? "");
-  if (!name || !spotifyArtistId) throw new Error("name + spotifyArtistId required");
+  if (!name || !spotifyArtistId || !timezone) {
+    throw new Error("name + spotifyArtistId + timezone required");
+  }
   const a = await createArtist({ name, spotifyArtistId, timezone, voiceGuide });
   revalidatePath("/artists");
   redirect(`/artists/${a.id}`);
@@ -24,9 +26,10 @@ export async function createArtistAction(formData: FormData) {
 export async function updateArtistAction(id: string, formData: FormData) {
   await requireUser();
   const name = String(formData.get("name") ?? "").trim();
-  const timezone = String(formData.get("timezone") ?? "");
+  const timezone = String(formData.get("timezone") ?? "").trim();
   const voiceGuide = String(formData.get("voiceGuide") ?? "");
-  const fbPageId = String(formData.get("fbPageId") ?? "") || undefined;
+  const fbPageId = String(formData.get("fbPageId") ?? "").trim() || undefined;
+  if (!name || !timezone) throw new Error("name + timezone required");
   await updateArtist(id, { name, timezone, voiceGuide, fbPageId });
   revalidatePath(`/artists/${id}`);
   redirect(`/artists/${id}`);
