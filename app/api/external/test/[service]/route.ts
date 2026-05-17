@@ -2,11 +2,16 @@ import { NextResponse } from "next/server";
 import { currentUser } from "@/lib/auth/current-user";
 import { getSecret } from "@/lib/secrets/queries";
 import { makeOpenRouterClient } from "@/lib/llm/openrouter";
-import { makeFeatureFmClient } from "@/lib/smartlink/featurefm";
 import { makeSpotifyWebClient } from "@/lib/spotify/web";
+import { stripAct } from "@/lib/fb/real";
+import { fetchWithBackoff, assertOk } from "@/lib/external/fetch";
 import { env } from "@/lib/env";
 
-const PROBES: Record<string, () => Promise<{ ok: boolean; detail?: string }>> = {
+type TestService = "llm" | "smartlink" | "spotify_web" | "fb";
+
+type ProbeResult = { ok: boolean; detail?: string };
+
+const PROBES: Record<TestService, () => Promise<ProbeResult>> = {
   llm: async () => {
     const apiKey = await getSecret("openrouter.api_key");
     if (!apiKey) return { ok: false, detail: "missing openrouter.api_key" };
@@ -26,16 +31,20 @@ const PROBES: Record<string, () => Promise<{ ok: boolean; detail?: string }>> = 
   smartlink: async () => {
     const apiKey = await getSecret("featurefm.api_key");
     if (!apiKey) return { ok: false, detail: "missing featurefm.api_key" };
-    // No idempotent GET probe available; assume key validity verified at first real call.
-    return { ok: true, detail: "api key present (no read-only probe available; verified on first real call)" };
+    // No idempotent read endpoint surfaced; key validity is verified on first real create.
+    return { ok: true, detail: "api key present (verified on first real call)" };
   },
   spotify_web: async () => {
-    const clientId = await getSecret("spotify.client_id");
-    const clientSecret = await getSecret("spotify.client_secret");
-    if (!clientId || !clientSecret) return { ok: false, detail: "missing spotify.client_id or spotify.client_secret" };
+    const [clientId, clientSecret] = await Promise.all([
+      getSecret("spotify.client_id"),
+      getSecret("spotify.client_secret"),
+    ]);
+    if (!clientId || !clientSecret) {
+      return { ok: false, detail: "missing spotify.client_id or spotify.client_secret" };
+    }
     const c = makeSpotifyWebClient({ clientId, clientSecret });
     try {
-      // 0OdUWJ0sBjDrqHygGUXeCF = Band of Horses — a well-known artist; ping just verifies auth + endpoint.
+      // 0OdUWJ0sBjDrqHygGUXeCF = Band of Horses — known artist; verifies auth + endpoint.
       const r = await c.getArtistPopularity("0OdUWJ0sBjDrqHygGUXeCF");
       return { ok: true, detail: `popularity=${r.popularity} followers=${r.followers}` };
     } catch (e) {
@@ -43,18 +52,17 @@ const PROBES: Record<string, () => Promise<{ ok: boolean; detail?: string }>> = 
     }
   },
   fb: async () => {
-    const token = await getSecret("fb.access_token");
-    const adAccountId = await getSecret("fb.ad_account_id");
+    const [token, adAccountId] = await Promise.all([
+      getSecret("fb.access_token"),
+      getSecret("fb.ad_account_id"),
+    ]);
     if (!token) return { ok: false, detail: "missing fb.access_token" };
     if (!adAccountId) return { ok: false, detail: "missing fb.ad_account_id" };
-    const stripped = adAccountId.startsWith("act_") ? adAccountId.slice(4) : adAccountId;
+    const stripped = stripAct(adAccountId);
     try {
       const url = `https://graph.facebook.com/v21.0/act_${encodeURIComponent(stripped)}?fields=name,currency&access_token=${encodeURIComponent(token)}`;
-      const res = await fetch(url, { method: "GET" });
-      if (!res.ok) {
-        const text = await res.text().catch(() => "");
-        return { ok: false, detail: `fb /act_${stripped}: ${res.status} ${text.slice(0, 200)}` };
-      }
+      const res = await fetchWithBackoff(url, { method: "GET" }, { service: "fb" });
+      await assertOk(res, `fb /act_${stripped}`);
       const j = (await res.json()) as { name?: string; currency?: string };
       return { ok: true, detail: `account=${j.name ?? "?"} currency=${j.currency ?? "?"}` };
     } catch (e) {
@@ -63,13 +71,18 @@ const PROBES: Record<string, () => Promise<{ ok: boolean; detail?: string }>> = 
   },
 };
 
+function isTestService(s: string): s is TestService {
+  return s in PROBES;
+}
+
 export async function POST(_req: Request, ctx: { params: Promise<{ service: string }> }) {
   if (!(await currentUser())) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
   const { service } = await ctx.params;
-  const probe = PROBES[service];
-  if (!probe) return NextResponse.json({ error: "unknown service" }, { status: 400 });
-  const result = await probe();
+  if (!isTestService(service)) {
+    return NextResponse.json({ error: "unknown service" }, { status: 400 });
+  }
+  const result = await PROBES[service]();
   return NextResponse.json(result, { status: result.ok ? 200 : 502 });
 }

@@ -42,20 +42,18 @@ export async function fetchWithBackoff(
         continue;
       }
 
-      if (retriable) {
-        // exhausted retries on a retriable status — fall through to error logging + throw
-        lastStatus = res.status;
-        break;
-      }
+      if (retriable) break;
 
-      await logExternalCall({
+      // Fire-and-forget so the response isn't held by a logging write. Failures
+      // are swallowed to avoid taking down a real call because we couldn't audit it.
+      void logExternalCall({
         service: opts.service,
         endpoint: url,
         method: init.method ?? "GET",
         status: res.status,
         durationMs: Date.now() - started,
         request: opts.redactRequest?.(init),
-      });
+      }).catch(() => undefined);
       return res;
     } catch (err) {
       lastErr = err;
@@ -67,6 +65,8 @@ export async function fetchWithBackoff(
     }
   }
 
+  // Errors are awaited so the audit row is durable before we throw — these are rare
+  // enough that the extra round-trip latency is irrelevant and the trail matters.
   await logExternalCall({
     service: opts.service,
     endpoint: url,
@@ -77,6 +77,13 @@ export async function fetchWithBackoff(
     request: opts.redactRequest?.(init),
   });
   throw new Error(`fetchWithBackoff exhausted retries for ${url} (last status: ${lastStatus ?? "n/a"})`);
+}
+
+/** Throws a uniform `<label>: <status> <body>` error when res is non-2xx. Use after fetchWithBackoff. */
+export async function assertOk(res: Response, label: string): Promise<void> {
+  if (res.ok) return;
+  const text = await res.text().catch(() => "");
+  throw new Error(`${label}: ${res.status} ${text}`);
 }
 
 function parseRetryAfter(v: string | null): number | null {

@@ -1,8 +1,20 @@
 import type { LLMClient } from "./client";
-import { fetchWithBackoff, type FetchOpts } from "@/lib/external/fetch";
+import { fetchWithBackoff, assertOk, type FetchOpts } from "@/lib/external/fetch";
 import { GenerateRequest, GenerateResponse } from "./types";
 
 const BASE = "https://openrouter.ai/api/v1";
+
+type OpenRouterResponse = {
+  id: string;
+  model: string;
+  choices?: Array<{ message?: { content?: string } }>;
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    prompt_tokens_details?: { cached_tokens?: number };
+    cost?: number;
+  };
+};
 
 export function makeOpenRouterClient(args: {
   apiKey: string;
@@ -29,16 +41,12 @@ export function makeOpenRouterClient(args: {
           usage: { include: true },
         }),
       }, { service: "llm", ...args.fetchOpts });
-      if (!res.ok) {
-        const text = await res.text().catch(() => "");
-        throw new Error(`openrouter ${res.status}: ${text}`);
-      }
-      const json: any = await res.json();
-      const text = json.choices?.[0]?.message?.content ?? "";
+      await assertOk(res, "openrouter");
+      const json = (await res.json()) as OpenRouterResponse;
       return GenerateResponse.parse({
         id: json.id,
         model: json.model,
-        text,
+        text: json.choices?.[0]?.message?.content ?? "",
         usage: {
           input_tokens: json.usage?.prompt_tokens ?? 0,
           output_tokens: json.usage?.completion_tokens ?? 0,

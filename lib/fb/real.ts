@@ -1,9 +1,14 @@
 import type { FBClient } from "./client";
 import type { FetchOpts } from "@/lib/external/fetch";
-import { fetchWithBackoff } from "@/lib/external/fetch";
+import { fetchWithBackoff, assertOk } from "@/lib/external/fetch";
 import { AdInsights, FBId } from "./types";
 
 const GRAPH = "https://graph.facebook.com/v21.0";
+
+/** Strip the `act_` prefix from a FB ad-account ID. */
+export function stripAct(adAccountId: string): string {
+  return adAccountId.startsWith("act_") ? adAccountId.slice(4) : adAccountId;
+}
 
 export function makeFBRealClient(args: {
   accessToken: string;
@@ -11,7 +16,7 @@ export function makeFBRealClient(args: {
 }): FBClient {
   const opts = (extra?: Partial<FetchOpts>) => ({ service: "fb", ...args.fetchOpts, ...extra });
 
-  async function post(path: string, body: Record<string, unknown>): Promise<any> {
+  async function post(path: string, body: Record<string, unknown>): Promise<unknown> {
     const entries: Record<string, string> = {};
     for (const [k, v] of Object.entries(body)) {
       entries[k] = typeof v === "string" ? v : JSON.stringify(v);
@@ -25,23 +30,17 @@ export function makeFBRealClient(args: {
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: encoded,
     }, opts());
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      throw new Error(`fb ${path}: ${res.status} ${text}`);
-    }
+    await assertOk(res, `fb ${path}`);
     return res.json();
   }
 
-  async function get(path: string, query: Record<string, string> = {}): Promise<any> {
+  async function get(path: string, query: Record<string, string> = {}): Promise<unknown> {
     const params = new URLSearchParams(query);
     params.set("access_token", args.accessToken);
     const res = await fetchWithBackoff(`${GRAPH}${path}?${params.toString()}`, {
       method: "GET",
     }, opts());
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      throw new Error(`fb ${path}: ${res.status} ${text}`);
-    }
+    await assertOk(res, `fb ${path}`);
     return res.json();
   }
 
@@ -52,7 +51,7 @@ export function makeFBRealClient(args: {
         objective: input.objective,
         status: input.status,
         special_ad_categories: [],
-      });
+      }) as { id: string };
       return FBId.parse({ id: j.id });
     },
 
@@ -67,7 +66,7 @@ export function makeFBRealClient(args: {
         start_time: input.startTime.toISOString(),
         end_time: input.endTime?.toISOString(),
         status: input.status,
-      });
+      }) as { id: string };
       return FBId.parse({ id: j.id });
     },
 
@@ -84,7 +83,7 @@ export function makeFBRealClient(args: {
             picture: input.imageUrl,
           },
         },
-      });
+      }) as { id: string };
       return FBId.parse({ id: j.id });
     },
 
@@ -94,7 +93,7 @@ export function makeFBRealClient(args: {
         adset_id: input.adSetId,
         creative: { creative_id: input.creativeId },
         status: input.status,
-      });
+      }) as { id: string };
       return FBId.parse({ id: j.id });
     },
 
@@ -106,7 +105,7 @@ export function makeFBRealClient(args: {
       const j = await get(`/${adId}/insights`, {
         fields: "spend,impressions,inline_link_clicks,ctr,cpc",
         time_range: JSON.stringify({ since: date, until: date }),
-      });
+      }) as { data?: Array<Record<string, unknown>> };
       const row = j.data?.[0];
       if (!row) return null;
       const spendUsd = Number(row.spend ?? 0);
@@ -119,8 +118,4 @@ export function makeFBRealClient(args: {
       });
     },
   };
-}
-
-function stripAct(adAccountId: string): string {
-  return adAccountId.startsWith("act_") ? adAccountId.slice(4) : adAccountId;
 }

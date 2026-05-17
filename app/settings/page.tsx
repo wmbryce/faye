@@ -39,11 +39,9 @@ export default async function SettingsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div>
-            {KEYS.map((k) => (
-              <SecretRow key={k.keyName} {...k} present={present.has(k.keyName)} />
-            ))}
-          </div>
+          {KEYS.map((k) => (
+            <SecretRow key={k.keyName} {...k} present={present.has(k.keyName)} />
+          ))}
         </CardContent>
       </Card>
 

@@ -17,6 +17,8 @@ type S4AOpts = {
   fetchOpts?: Partial<FetchOpts>;
 };
 
+type DailyResponse = { streams?: number | null; listeners?: number | null };
+
 export function makeSpotifyS4AClient(args: S4AOpts): SpotifyClient {
   const opts = (extra?: Partial<FetchOpts>) => ({ service: "spotify_s4a", ...args.fetchOpts, ...extra });
 
@@ -32,10 +34,12 @@ export function makeSpotifyS4AClient(args: S4AOpts): SpotifyClient {
         headers: { "Authorization": `Bearer ${args.s4aToken}` },
       }, opts());
       if (!res.ok) {
-        // degrade silently — return web_estimate shape
+        // Degrade silently — the external_calls log retains the failure for triage.
+        // We avoid throwing here because S4A is an enhancement to the composite score,
+        // not a hard requirement; the Web client always returns a usable fallback.
         return DailyStreams.parse({ streams: null, listeners: null, source: "web_estimate" });
       }
-      const j: any = await res.json();
+      const j = (await res.json()) as DailyResponse;
       return DailyStreams.parse({
         streams: j.streams ?? null,
         listeners: j.listeners ?? null,

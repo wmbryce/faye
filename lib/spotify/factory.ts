@@ -6,6 +6,20 @@ import { makeSpotifyS4AClient } from "./s4a";
 import { makeMockSpotifyClient } from "./mock";
 import type { SpotifyClient } from "./client";
 
+// Memoize web clients at module scope so the in-instance OAuth token cache survives
+// across per-request factory calls. Keyed by clientId — credentials are stable for the
+// process lifetime, and rotation requires a deploy anyway.
+const webClientCache = new Map<string, SpotifyClient>();
+
+function getWebClient(clientId: string, clientSecret: string): SpotifyClient {
+  let c = webClientCache.get(clientId);
+  if (!c) {
+    c = makeSpotifyWebClient({ clientId, clientSecret });
+    webClientCache.set(clientId, c);
+  }
+  return c;
+}
+
 /**
  * Returns a SpotifyClient tailored to the given artist.
  * - test env → mock
@@ -19,7 +33,7 @@ export async function makeSpotifyClient(args?: { artistId?: string }): Promise<S
     getSecret("spotify.client_secret"),
   ]);
   if (!clientId || !clientSecret) throw new Error("missing spotify.client_id or spotify.client_secret (set in /settings)");
-  const web = makeSpotifyWebClient({ clientId, clientSecret });
+  const web = getWebClient(clientId, clientSecret);
   if (!args?.artistId) return web;
   const artist = await getArtist(args.artistId);
   if (!artist?.spotifyForArtistsToken) return web;

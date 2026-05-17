@@ -5,8 +5,12 @@ const ALGORITHM = "aes-256-gcm";
 const IV_BYTES = 12;
 const TAG_BYTES = 16;
 
+let derivedKey: Buffer | null = null;
 function key(): Buffer {
-  return createHash("sha256").update(env().AUTH_TOKEN_SECRET).digest();
+  if (!derivedKey) {
+    derivedKey = createHash("sha256").update(env().AUTH_TOKEN_SECRET).digest();
+  }
+  return derivedKey;
 }
 
 export function encrypt(plaintext: string): string {

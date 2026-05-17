@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { secrets } from "@/lib/db/schema";
 import { encrypt } from "./crypto";
@@ -11,6 +12,5 @@ export async function setSecret(key: string, value: string): Promise<void> {
 }
 
 export async function deleteSecret(key: string): Promise<void> {
-  const { eq } = await import("drizzle-orm");
   await db.delete(secrets).where(eq(secrets.key, key));
 }

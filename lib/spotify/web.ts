@@ -1,6 +1,5 @@
 import type { SpotifyClient } from "./client";
-import type { FetchOpts } from "@/lib/external/fetch";
-import { fetchWithBackoff } from "@/lib/external/fetch";
+import { fetchWithBackoff, assertOk, type FetchOpts } from "@/lib/external/fetch";
 import { ArtistPopularity, TrackSummary, DailyStreams } from "./types";
 
 const ACCOUNTS = "https://accounts.spotify.com/api/token";
@@ -8,6 +7,10 @@ const API = "https://api.spotify.com/v1";
 const TOKEN_TTL_BUFFER_MS = 30_000;
 
 type WebOpts = { clientId: string; clientSecret: string; fetchOpts?: Partial<FetchOpts> };
+
+type TokenResponse = { access_token: string; expires_in: number };
+type ArtistResponse = { popularity?: number; followers?: { total?: number } };
+type TrackResponse = { id: string; name: string; popularity?: number };
 
 /**
  * Web API client using the client-credentials flow. Token cached in memory with TTL buffer.
@@ -28,8 +31,8 @@ export function makeSpotifyWebClient(args: WebOpts): SpotifyClient {
       },
       body: "grant_type=client_credentials",
     }, fetchOpts());
-    if (!res.ok) throw new Error(`spotify token: ${res.status}`);
-    const j: any = await res.json();
+    await assertOk(res, "spotify token");
+    const j = (await res.json()) as TokenResponse;
     token = { value: j.access_token, expiresAt: Date.now() + j.expires_in * 1000 };
     return token.value;
   }
@@ -45,8 +48,8 @@ export function makeSpotifyWebClient(args: WebOpts): SpotifyClient {
   return {
     async getArtistPopularity(artistId) {
       const res = await authedFetch(`${API}/artists/${encodeURIComponent(artistId)}`);
-      if (!res.ok) throw new Error(`spotify artist: ${res.status}`);
-      const j: any = await res.json();
+      await assertOk(res, "spotify artist");
+      const j = (await res.json()) as ArtistResponse;
       return ArtistPopularity.parse({
         popularity: j.popularity ?? 0,
         followers: j.followers?.total ?? 0,
@@ -55,8 +58,8 @@ export function makeSpotifyWebClient(args: WebOpts): SpotifyClient {
 
     async getTrack(trackId) {
       const res = await authedFetch(`${API}/tracks/${encodeURIComponent(trackId)}`);
-      if (!res.ok) throw new Error(`spotify track: ${res.status}`);
-      const j: any = await res.json();
+      await assertOk(res, "spotify track");
+      const j = (await res.json()) as TrackResponse;
       return TrackSummary.parse({ id: j.id, title: j.name, popularity: j.popularity ?? 0 });
     },
 
