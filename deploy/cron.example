@@ -10,3 +10,7 @@
 
 # Bandit step — daily, 30 min after metrics pull. Same default date semantics.
 30 8 * * * faye cd /opt/faye && /usr/bin/pnpm exec tsx scripts/bandit-step.ts --all >> /var/log/faye/bandit.log 2>&1
+
+# Daily LLM loop — runs HOURLY. Per-campaign filter inside picks only campaigns
+# whose artist-local hour is 09:00. Collapses 24 tz buckets into one crontab line.
+0 * * * * faye cd /opt/faye && /usr/bin/pnpm exec tsx scripts/daily.ts --all >> /var/log/faye/daily.log 2>&1

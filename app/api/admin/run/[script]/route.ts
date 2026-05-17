@@ -3,12 +3,13 @@ import { currentUser } from "@/lib/auth/current-user";
 import { pullDailyMetrics } from "@/lib/metrics/pull";
 import { runBanditStep } from "@/lib/bandit/step";
 import { publisherTick } from "@/lib/publisher/tick";
+import { runDailyLoop } from "@/lib/loop/daily";
 import { yesterdayISO } from "@/scripts/_shared";
 
-type Script = "metrics-pull" | "bandit-step" | "publish-tick";
+type Script = "metrics-pull" | "bandit-step" | "publish-tick" | "daily";
 
 function isScript(s: string): s is Script {
-  return s === "metrics-pull" || s === "bandit-step" || s === "publish-tick";
+  return s === "metrics-pull" || s === "bandit-step" || s === "publish-tick" || s === "daily";
 }
 
 export async function POST(req: Request, ctx: { params: Promise<{ script: string }> }) {
@@ -21,7 +22,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ script: string
   }
   const body = await req.json().catch(() => ({}));
   const campaignId: string | undefined = typeof body.campaignId === "string" ? body.campaignId : undefined;
-  const date: string = typeof body.date === "string" ? body.date : yesterdayISO();
+  const date: string | undefined = typeof body.date === "string" ? body.date : undefined;
 
   try {
     if (script === "publish-tick") {
@@ -32,11 +33,16 @@ export async function POST(req: Request, ctx: { params: Promise<{ script: string
       return NextResponse.json({ error: "campaignId required for this script" }, { status: 400 });
     }
     if (script === "metrics-pull") {
-      const r = await pullDailyMetrics({ campaignId, date });
+      const r = await pullDailyMetrics({ campaignId, date: date ?? yesterdayISO() });
       return NextResponse.json(r);
     }
     if (script === "bandit-step") {
-      const r = await runBanditStep({ campaignId, date });
+      const r = await runBanditStep({ campaignId, date: date ?? yesterdayISO() });
+      return NextResponse.json(r);
+    }
+    if (script === "daily") {
+      // Omit yesterday when not explicitly provided; runDailyLoop derives artist-local yesterday.
+      const r = await runDailyLoop({ campaignId, ...(date ? { yesterday: date } : {}) });
       return NextResponse.json(r);
     }
   } catch (err) {

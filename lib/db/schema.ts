@@ -193,3 +193,34 @@ export const releaseMetricDaily = pgTable("release_metric_daily", {
 
 export type AdMetricDaily = typeof adMetricDaily.$inferSelect;
 export type ReleaseMetricDaily = typeof releaseMetricDaily.$inferSelect;
+
+export const llmRuns = pgTable("llm_runs", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  campaignId: uuid("campaign_id").references(() => campaigns.id, { onDelete: "set null" }),
+  date: date("date").notNull(),
+  kind: text("kind", { enum: ["critique", "generate", "safety"] }).notNull(),
+  model: text("model").notNull(),
+  inputTokens: integer("input_tokens").notNull().default(0),
+  outputTokens: integer("output_tokens").notNull().default(0),
+  cachedInputTokens: integer("cached_input_tokens").notNull().default(0),
+  costCents: integer("cost_cents"),
+  promptHash: text("prompt_hash").notNull(),
+  output: jsonb("output"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  campaignDateIdx: index("llm_runs_campaign_date_idx").on(t.campaignId, t.date),
+  tokensNonNegativeChk: check(
+    "llm_runs_tokens_nonnegative_chk",
+    sql`${t.inputTokens} >= 0 AND ${t.outputTokens} >= 0 AND ${t.cachedInputTokens} >= 0`,
+  ),
+  cachedLeInputChk: check(
+    "llm_runs_cached_le_input_chk",
+    sql`${t.cachedInputTokens} <= ${t.inputTokens}`,
+  ),
+  costNonNegativeChk: check(
+    "llm_runs_cost_nonnegative_chk",
+    sql`${t.costCents} IS NULL OR ${t.costCents} >= 0`,
+  ),
+}));
+
+export type LLMRun = typeof llmRuns.$inferSelect;
