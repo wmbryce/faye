@@ -37,14 +37,14 @@ export async function createAdAction(campaignId: string, formData: FormData) {
 
 export async function pauseAdAction(campaignId: string, adId: string) {
   if (!(await currentUser())) throw new Error("unauthorized");
-  await pauseAdById(adId);
+  await pauseAdById(campaignId, adId);
   revalidatePath(`/campaigns/${campaignId}`);
   revalidatePath(`/campaigns/${campaignId}/ads`);
 }
 
 export async function killAdAction(campaignId: string, adId: string) {
   if (!(await currentUser())) throw new Error("unauthorized");
-  await killAdById(adId);
+  await killAdById(campaignId, adId);
   revalidatePath(`/campaigns/${campaignId}`);
   revalidatePath(`/campaigns/${campaignId}/ads`);
 }

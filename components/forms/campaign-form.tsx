@@ -1,3 +1,6 @@
+"use client";
+
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -30,7 +33,12 @@ export function CampaignForm({
   }
 
   const firstRelease = releases[0];
-  const defaultSpotifyUrl = `https://open.spotify.com/${firstRelease.kind}/${firstRelease.spotifyId}`;
+  const [releaseId, setReleaseId] = useState(firstRelease.id);
+  const selectedRelease = useMemo(
+    () => releases.find((r) => r.id === releaseId) ?? firstRelease,
+    [releases, releaseId, firstRelease],
+  );
+  const spotifyUrl = `https://open.spotify.com/${selectedRelease.kind}/${selectedRelease.spotifyId}`;
 
   return (
     <form action={action} className="space-y-5 max-w-xl">
@@ -39,7 +47,8 @@ export function CampaignForm({
           id="releaseId"
           name="releaseId"
           required
-          defaultValue={firstRelease.id}
+          value={releaseId}
+          onChange={(e) => setReleaseId(e.currentTarget.value)}
           className="flex h-9 w-full rounded-md border border-border bg-surface-1 px-3 text-sm text-foreground focus-visible:outline-none focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
           {releases.map((r) => (
@@ -53,14 +62,15 @@ export function CampaignForm({
       <Field
         label="Spotify URL"
         htmlFor="spotifyTrackOrAlbumUrl"
-        hint="Where the smartlink redirects on the Spotify tap."
+        hint="Derived from the selected release; submitted with the form."
       >
         <Input
           id="spotifyTrackOrAlbumUrl"
           name="spotifyTrackOrAlbumUrl"
           type="url"
           required
-          defaultValue={defaultSpotifyUrl}
+          value={spotifyUrl}
+          readOnly
         />
       </Field>
 

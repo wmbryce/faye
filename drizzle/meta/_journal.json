@@ -43,6 +43,13 @@
       "when": 1779046548568,
       "tag": "0005_next_dreaming_celestial",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1779048716959,
+      "tag": "0006_wise_red_hulk",
+      "breakpoints": true
     }
   ]
 }

@@ -148,9 +148,19 @@ describe("pause / kill ad", () => {
       copyHeadline: "x", copyPrimaryText: "y", copyBody: "",
     });
     await publishAd(ad.id);
-    await pauseAdById(ad.id);
+    await pauseAdById(campaign.id, ad.id);
     expect((await getAd(ad.id))?.status).toBe("paused");
     expect((await listAuditFor("ad", ad.id)).map((x) => x.event)).toContain("paused");
+  });
+
+  it("pauseAdById rejects ad from a different campaign", async () => {
+    const { campaign, audience, asset } = await seedCampaign();
+    const ad = await createDraftAd({
+      campaignId: campaign.id, audienceId: audience.id, assetId: asset.id,
+      copyHeadline: "x", copyPrimaryText: "y", copyBody: "",
+    });
+    await expect(pauseAdById("00000000-0000-0000-0000-000000000000", ad.id))
+      .rejects.toThrow(/does not belong/);
   });
 
   it("killAdById flips status to killed", async () => {
@@ -160,7 +170,7 @@ describe("pause / kill ad", () => {
       copyHeadline: "x", copyPrimaryText: "y", copyBody: "",
     });
     await publishAd(ad.id);
-    await killAdById(ad.id);
+    await killAdById(campaign.id, ad.id);
     expect((await getAd(ad.id))?.status).toBe("killed");
   });
 });

@@ -100,7 +100,7 @@ describe("campaign create", () => {
       artistId: a2.id, releaseId: r.id, dailyBudgetCents: 100,
       startDate: "2026-06-01", endDate: "2026-07-01",
       audienceSeedIds: [s1.id], spotifyTrackOrAlbumUrl: "https://open.spotify.com/track/abc",
-    })).rejects.toThrow();
+    })).rejects.toThrow(/release.*artist/i);
   });
 
   it("rejects startDate >= endDate", async () => {
@@ -109,7 +109,7 @@ describe("campaign create", () => {
       artistId: a.id, releaseId: r.id, dailyBudgetCents: 100,
       startDate: "2026-07-01", endDate: "2026-06-01",
       audienceSeedIds: [s1.id], spotifyTrackOrAlbumUrl: "https://open.spotify.com/track/abc",
-    })).rejects.toThrow();
+    })).rejects.toThrow(/startDate.*endDate/i);
   });
 
   it("rejects missing fb.ad_account_id secret", async () => {

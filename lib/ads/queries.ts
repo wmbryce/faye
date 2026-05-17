@@ -1,15 +1,22 @@
-import { eq, desc } from "drizzle-orm";
+import { and, eq, desc } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { ads, type Ad } from "@/lib/db/schema";
 
 export async function listAds(opts: { campaignId?: string; audienceId?: string }): Promise<Ad[]> {
+  if (!opts.campaignId && !opts.audienceId) {
+    throw new Error("listAds requires campaignId or audienceId");
+  }
+  if (opts.campaignId && opts.audienceId) {
+    return db
+      .select()
+      .from(ads)
+      .where(and(eq(ads.campaignId, opts.campaignId), eq(ads.audienceId, opts.audienceId)))
+      .orderBy(desc(ads.createdAt));
+  }
   if (opts.campaignId) {
     return db.select().from(ads).where(eq(ads.campaignId, opts.campaignId)).orderBy(desc(ads.createdAt));
   }
-  if (opts.audienceId) {
-    return db.select().from(ads).where(eq(ads.audienceId, opts.audienceId)).orderBy(desc(ads.createdAt));
-  }
-  return [];
+  return db.select().from(ads).where(eq(ads.audienceId, opts.audienceId!)).orderBy(desc(ads.createdAt));
 }
 
 export async function getAd(id: string): Promise<Ad | null> {

@@ -1,4 +1,5 @@
-import { pgTable, text, timestamp, uuid, integer, jsonb, boolean, date } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, uuid, integer, jsonb, boolean, date, check, index, type AnyPgColumn } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import type { TargetingSpec } from "@/lib/audiences/spec";
 
 export const users = pgTable("users", {
@@ -101,7 +102,11 @@ export const campaigns = pgTable("campaigns", {
   fbCampaignId: text("fb_campaign_id"),
   timezone: text("timezone").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
+}, (t) => ({
+  budgetPositive: check("campaigns_daily_budget_positive_chk", sql`${t.dailyBudgetCents} > 0`),
+  dateRange: check("campaigns_date_range_chk", sql`${t.endDate} >= ${t.startDate}`),
+  artistCreatedIdx: index("campaigns_artist_created_idx").on(t.artistId, t.createdAt.desc()),
+}));
 
 export const audiences = pgTable("audiences", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -113,7 +118,10 @@ export const audiences = pgTable("audiences", {
   dailyBudgetCents: integer("daily_budget_cents").notNull(),
   active: boolean("active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
+}, (t) => ({
+  budgetPositive: check("audiences_daily_budget_positive_chk", sql`${t.dailyBudgetCents} > 0`),
+  campaignIdx: index("audiences_campaign_idx").on(t.campaignId),
+}));
 
 export const ads = pgTable("ads", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -129,10 +137,15 @@ export const ads = pgTable("ads", {
   publishAt: timestamp("publish_at", { withTimezone: true }),
   rejectedAt: timestamp("rejected_at", { withTimezone: true }),
   rejectedReason: text("rejected_reason"),
-  parentAdId: uuid("parent_ad_id"),  // self-reference to ads.id; FK added in a follow-up to avoid Drizzle circular-ref typing
+  parentAdId: uuid("parent_ad_id").references((): AnyPgColumn => ads.id, { onDelete: "set null" }),
   promptHash: text("prompt_hash"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
+}, (t) => ({
+  generationNonNeg: check("ads_generation_nonnegative_chk", sql`${t.generation} >= 0`),
+  campaignCreatedIdx: index("ads_campaign_created_idx").on(t.campaignId, t.createdAt.desc()),
+  audienceCreatedIdx: index("ads_audience_created_idx").on(t.audienceId, t.createdAt.desc()),
+  parentAdIdx: index("ads_parent_ad_id_idx").on(t.parentAdId),
+}));
 
 export const auditLog = pgTable("audit_log", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -141,7 +154,9 @@ export const auditLog = pgTable("audit_log", {
   event: text("event").notNull(),
   payload: jsonb("payload"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
+}, (t) => ({
+  entityCreatedIdx: index("audit_log_entity_created_idx").on(t.entityType, t.entityId, t.createdAt.desc()),
+}));
 
 export type Campaign = typeof campaigns.$inferSelect;
 export type Audience = typeof audiences.$inferSelect;

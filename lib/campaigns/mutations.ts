@@ -21,12 +21,24 @@ export type CreateCampaignInput = {
 
 const MAX_AUDIENCES_PER_CAMPAIGN = 5;
 
+function parseIsoDate(value: string, field: string): Date {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new Error(`${field} must be YYYY-MM-DD`);
+  const d = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) throw new Error(`${field} is not a valid date`);
+  return d;
+}
+
 export async function createCampaign(input: CreateCampaignInput): Promise<Campaign> {
   if (input.audienceSeedIds.length === 0 || input.audienceSeedIds.length > MAX_AUDIENCES_PER_CAMPAIGN) {
     throw new Error(`must pick 1-${MAX_AUDIENCES_PER_CAMPAIGN} audience seeds`);
   }
   if (input.dailyBudgetCents <= 0) throw new Error("dailyBudgetCents must be > 0");
-  if (input.startDate >= input.endDate) throw new Error("startDate must be before endDate");
+  if (input.dailyBudgetCents < input.audienceSeedIds.length) {
+    throw new Error("dailyBudgetCents must be at least 1 cent per audience");
+  }
+  const startAt = parseIsoDate(input.startDate, "startDate");
+  const endAt = parseIsoDate(input.endDate, "endDate");
+  if (startAt >= endAt) throw new Error("startDate must be before endDate");
 
   const [artist, release] = await Promise.all([getArtist(input.artistId), getRelease(input.releaseId)]);
   if (!artist) throw new Error("artist not found");
@@ -94,8 +106,8 @@ export async function createCampaign(input: CreateCampaignInput): Promise<Campai
       dailyBudgetCents: perAudienceBudget,
       targetingSpec: seed.targetingSpec,
       optimization: "LINK_CLICKS",
-      startTime: new Date(`${input.startDate}T00:00:00Z`),
-      endTime: new Date(`${input.endDate}T00:00:00Z`),
+      startTime: startAt,
+      endTime: endAt,
       status: "PAUSED",
     });
     await db.insert(audiences).values({

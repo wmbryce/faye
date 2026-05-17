@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, isNull, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { ads, audiences, campaigns, assets, type Ad } from "@/lib/db/schema";
 import { writeAudit } from "@/lib/audit/log";
@@ -56,11 +56,22 @@ export async function createDraftAd(input: CreateDraftAdInput): Promise<Ad> {
 }
 
 export async function publishAd(adId: string): Promise<void> {
-  const [ad] = await db.select().from(ads).where(eq(ads.id, adId)).limit(1);
-  if (!ad) throw new Error("ad not found");
-  if (ad.status === "rejected") throw new Error("cannot publish rejected ad");
-  if (ad.status !== "draft" && ad.status !== "pending") {
-    throw new Error(`cannot publish ad in status ${ad.status}`);
+  // Atomically claim the ad by flipping draft/pending → pending and requiring no fbAdId yet.
+  // Prevents duplicate FB creatives/ads if publishAd runs concurrently for the same row.
+  const [ad] = await db
+    .update(ads)
+    .set({ status: "pending" })
+    .where(and(
+      eq(ads.id, adId),
+      inArray(ads.status, ["draft", "pending"] as const),
+      isNull(ads.fbAdId),
+    ))
+    .returning();
+  if (!ad) {
+    const [current] = await db.select().from(ads).where(eq(ads.id, adId)).limit(1);
+    if (!current) throw new Error("ad not found");
+    if (current.status === "rejected") throw new Error("cannot publish rejected ad");
+    throw new Error(`cannot publish ad in status ${current.status}`);
   }
 
   const [audience] = await db.select().from(audiences).where(eq(audiences.id, ad.audienceId)).limit(1);
@@ -106,9 +117,10 @@ export async function publishAd(adId: string): Promise<void> {
   });
 }
 
-export async function pauseAdById(adId: string): Promise<void> {
+export async function pauseAdById(campaignId: string, adId: string): Promise<void> {
   const [ad] = await db.select().from(ads).where(eq(ads.id, adId)).limit(1);
   if (!ad) throw new Error("ad not found");
+  if (ad.campaignId !== campaignId) throw new Error("ad does not belong to this campaign");
   if (ad.fbAdId) {
     const fb = await makeFBClient();
     await fb.pauseAd(ad.fbAdId);
@@ -117,9 +129,10 @@ export async function pauseAdById(adId: string): Promise<void> {
   await writeAudit({ entityType: "ad", entityId: adId, event: "paused" });
 }
 
-export async function killAdById(adId: string): Promise<void> {
+export async function killAdById(campaignId: string, adId: string): Promise<void> {
   const [ad] = await db.select().from(ads).where(eq(ads.id, adId)).limit(1);
   if (!ad) throw new Error("ad not found");
+  if (ad.campaignId !== campaignId) throw new Error("ad does not belong to this campaign");
   if (ad.fbAdId) {
     const fb = await makeFBClient();
     await fb.archiveAd(ad.fbAdId);

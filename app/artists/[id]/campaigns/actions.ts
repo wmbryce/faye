@@ -20,6 +20,7 @@ export async function createCampaignAction(artistId: string, formData: FormData)
   const dollars = Number(dailyBudgetDollarsRaw);
   if (!Number.isFinite(dollars) || dollars <= 0) throw new Error("dailyBudget must be > 0");
   const dailyBudgetCents = Math.round(dollars * 100);
+  if (dailyBudgetCents <= 0) throw new Error("dailyBudget must be at least $0.01");
 
   const c = await createCampaign({
     artistId,
