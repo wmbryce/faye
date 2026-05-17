@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 const SECTIONS: { href: string; label: string; match: (path: string) => boolean }[] = [
   { href: "/", label: "Dashboard", match: (p) => p === "/" },
   { href: "/artists", label: "Artists", match: (p) => p.startsWith("/artists") },
+  { href: "/campaigns", label: "Campaigns", match: (p) => p.startsWith("/campaigns") },
   { href: "/settings", label: "Settings", match: (p) => p.startsWith("/settings") },
 ];
 
