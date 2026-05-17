@@ -1,6 +1,5 @@
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
-import { eq, and } from "drizzle-orm";
 import { currentUser } from "@/lib/auth/current-user";
 import { Shell } from "@/components/layout/shell";
 import { PageHeader } from "@/components/layout/page-header";
@@ -8,9 +7,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
-import { db } from "@/lib/db";
-import { ads, audiences, assets } from "@/lib/db/schema";
 import { getCampaign } from "@/lib/campaigns/queries";
+import { listPendingAdsForReview } from "@/lib/ads/queries";
 import { getArtist } from "@/lib/artists/queries";
 import { getRelease } from "@/lib/releases/queries";
 import { approveAction, rejectAction } from "./actions";
@@ -26,12 +24,7 @@ export default async function ReviewPage({ params }: { params: Promise<{ id: str
     getRelease(campaign.releaseId),
   ]);
 
-  const rows = await db
-    .select({ ad: ads, audience: audiences, asset: assets })
-    .from(ads)
-    .innerJoin(audiences, eq(audiences.id, ads.audienceId))
-    .innerJoin(assets, eq(assets.id, ads.assetId))
-    .where(and(eq(ads.campaignId, id), eq(ads.status, "pending")));
+  const rows = await listPendingAdsForReview(id);
 
   return (
     <Shell email={user.email}>

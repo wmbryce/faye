@@ -1,6 +1,14 @@
 import Link from "next/link";
 import { verifyRejectToken } from "@/lib/email/reject-tokens";
 import { getAdRejectSummary } from "@/lib/ads/summary";
+
+const REJECT_REASON_LABEL: Record<string, string> = {
+  malformed: "Link is malformed",
+  bad_signature: "Link is invalid",
+  expired: "Link has expired",
+  wrong_kind: "Link is invalid",
+  already_used: "This ad was already rejected",
+};
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +24,7 @@ export default async function RejectPage({ params }: { params: Promise<{ token: 
       <Layout>
         <Card>
           <CardContent className="p-6 space-y-2">
-            <h1 className="text-xl font-semibold">Link {v.reason}</h1>
+            <h1 className="text-xl font-semibold">{REJECT_REASON_LABEL[v.reason] ?? "Link is invalid"}</h1>
             <p className="text-sm text-muted-foreground">
               This reject link is no longer valid. The ad may already be published, rejected, or the link expired.
             </p>

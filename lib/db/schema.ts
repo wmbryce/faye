@@ -241,3 +241,21 @@ export const notifications = pgTable("notifications", {
 
 export type ConsumedRejectToken = typeof consumedRejectTokens.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
+
+export const AD_STATUS = {
+  draft: "draft",
+  pending: "pending",
+  published: "published",
+  rejected: "rejected",
+  paused: "paused",
+  killed: "killed",
+} as const;
+export type AdStatus = typeof AD_STATUS[keyof typeof AD_STATUS];
+
+export const CAMPAIGN_STATUS = {
+  draft: "draft",
+  active: "active",
+  paused: "paused",
+  ended: "ended",
+} as const;
+export type CampaignStatus = typeof CAMPAIGN_STATUS[keyof typeof CAMPAIGN_STATUS];

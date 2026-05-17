@@ -1,6 +1,8 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { ads, audiences, campaigns, releases, artists, assets } from "@/lib/db/schema";
+import { ads, audiences, campaigns, assets } from "@/lib/db/schema";
+import { getArtist } from "@/lib/artists/queries";
+import { getRelease } from "@/lib/releases/queries";
 
 export type AdRejectSummary = {
   adId: string;
@@ -26,8 +28,10 @@ export async function getAdRejectSummary(adId: string): Promise<AdRejectSummary 
     .where(eq(ads.id, adId))
     .limit(1);
   if (!row) return null;
-  const [release] = await db.select().from(releases).where(eq(releases.id, row.campaign.releaseId)).limit(1);
-  const [artist] = await db.select().from(artists).where(eq(artists.id, row.campaign.artistId)).limit(1);
+  const [release, artist] = await Promise.all([
+    getRelease(row.campaign.releaseId),
+    getArtist(row.campaign.artistId),
+  ]);
   if (!release || !artist) return null;
   return {
     adId: row.ad.id,

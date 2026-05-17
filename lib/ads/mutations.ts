@@ -167,19 +167,26 @@ export async function approvePendingAd(adId: string): Promise<void> {
   });
 }
 
-export async function rejectPendingAd(adId: string): Promise<void> {
+export async function markAdRejected(adId: string, reason: string, source: "email" | "in-app"): Promise<void> {
   const [ad] = await db.select().from(ads).where(eq(ads.id, adId)).limit(1);
   if (!ad) throw new Error("ad not found");
-  if (ad.status !== "pending") throw new Error(`cannot reject ad in status ${ad.status}`);
+  const previousStatus = ad.status;
   await db.update(ads).set({
     status: "rejected",
     rejectedAt: new Date(),
-    rejectedReason: "operator-in-app",
+    rejectedReason: reason,
   }).where(eq(ads.id, adId));
   await writeAudit({
     entityType: "ad",
     entityId: adId,
-    event: "rejected_in_app",
-    payload: { previousStatus: "pending", reason: "operator-in-app" },
+    event: source === "email" ? "rejected_via_email" : "rejected_in_app",
+    payload: { previousStatus, reason, source },
   });
+}
+
+export async function rejectPendingAd(adId: string): Promise<void> {
+  const [ad] = await db.select().from(ads).where(eq(ads.id, adId)).limit(1);
+  if (!ad) throw new Error("ad not found");
+  if (ad.status !== "pending") throw new Error(`cannot reject ad in status ${ad.status}`);
+  await markAdRejected(adId, "operator-in-app", "in-app");
 }

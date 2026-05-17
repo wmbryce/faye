@@ -5,11 +5,7 @@ import { runBanditStep } from "@/lib/bandit/step";
 import { publisherTick } from "@/lib/publisher/tick";
 import { runDailyLoop } from "@/lib/loop/daily";
 import { yesterdayISO } from "@/scripts/_shared";
-import { buildCampaignDigest } from "@/lib/email/digest/builder";
-import { sendDailyDigest } from "@/lib/email/digest/send";
-import { db } from "@/lib/db";
-import { campaigns, ads } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { listCampaignIdsWithPendingAds, runDigest } from "@/lib/email/digest/run";
 
 type Script = "metrics-pull" | "bandit-step" | "publish-tick" | "daily" | "digest";
 
@@ -35,19 +31,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ script: string
       return NextResponse.json(r);
     }
     if (script === "digest") {
-      // Build a single-campaign digest if campaignId given; otherwise build for all active campaigns with pending ads.
-      let digests = [];
-      if (campaignId) {
-        digests = [await buildCampaignDigest({ campaignId, yesterday: date ?? yesterdayISO() })];
-      } else {
-        const rows = await db.selectDistinct({ id: campaigns.id }).from(campaigns)
-          .innerJoin(ads, eq(ads.campaignId, campaigns.id))
-          .where(and(eq(campaigns.status, "active"), eq(ads.status, "pending")));
-        for (const r of rows) digests.push(await buildCampaignDigest({ campaignId: r.id, yesterday: date ?? yesterdayISO() }));
-      }
-      if (digests.length === 0) return NextResponse.json({ sent: 0, msgId: null });
-      const msgId = await sendDailyDigest({ date: date ?? yesterdayISO(), digests });
-      return NextResponse.json({ sent: digests.length, msgId });
+      const resolvedDate = date ?? yesterdayISO();
+      const campaignIds = campaignId
+        ? [campaignId]
+        : await listCampaignIdsWithPendingAds();
+      const result = await runDigest({ campaignIds, date: resolvedDate });
+      return NextResponse.json(result);
     }
     if (!campaignId) {
       return NextResponse.json({ error: "campaignId required for this script" }, { status: 400 });

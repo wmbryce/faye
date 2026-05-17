@@ -1,10 +1,18 @@
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 
+const REJECT_REASON_LABEL: Record<string, string> = {
+  malformed: "Link is malformed",
+  bad_signature: "Link is invalid",
+  expired: "Link has expired",
+  wrong_kind: "Link is invalid",
+  already_used: "This ad was already rejected",
+};
+
 export default async function RejectDonePage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
   const { status } = await searchParams;
   const ok = status === "ok";
-  const heading = ok ? "Ad rejected" : `Link ${status ?? "invalid"}`;
+  const heading = ok ? "Ad rejected" : (REJECT_REASON_LABEL[status ?? ""] ?? "Link is invalid");
   const message = ok
     ? "Faye will not publish this ad. It's already paused for the publisher tick."
     : "This reject link couldn't be processed. The ad may already be rejected or the link expired.";
