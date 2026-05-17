@@ -8,6 +8,13 @@
       "when": 1778991345509,
       "tag": "0000_nostalgic_silk_fever",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1779035251153,
+      "tag": "0001_chief_goblin_queen",
+      "breakpoints": true
     }
   ]
 }

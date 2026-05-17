@@ -8,7 +8,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  await sql`TRUNCATE TABLE sessions, users RESTART IDENTITY CASCADE`;
+  await sql`TRUNCATE TABLE sessions, audience_seeds, releases, assets, artists, users RESTART IDENTITY CASCADE`;
 });
 
 afterAll(async () => {

@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, uuid, integer, jsonb, boolean, date } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -16,3 +16,51 @@ export const sessions = pgTable("sessions", {
 
 export type User = typeof users.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
+
+export const artists = pgTable("artists", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  name: text("name").notNull(),
+  spotifyArtistId: text("spotify_artist_id").notNull().unique(),
+  timezone: text("timezone").notNull(),
+  fbPageId: text("fb_page_id"),
+  voiceGuide: text("voice_guide").notNull().default(""),
+  spotifyForArtistsToken: text("s4a_token"),
+  notes: text("notes").notNull().default(""),
+  archived: boolean("archived").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const assets = pgTable("assets", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  artistId: uuid("artist_id").notNull().references(() => artists.id, { onDelete: "cascade" }),
+  kind: text("kind", { enum: ["image", "video"] }).notNull(),
+  url: text("url").notNull(),
+  label: text("label").notNull().default(""),
+  bytes: integer("bytes").notNull(),
+  contentType: text("content_type").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const releases = pgTable("releases", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  artistId: uuid("artist_id").notNull().references(() => artists.id, { onDelete: "cascade" }),
+  kind: text("kind", { enum: ["track", "album"] }).notNull(),
+  spotifyId: text("spotify_id").notNull().unique(),
+  title: text("title").notNull(),
+  releaseDate: date("release_date").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const audienceSeeds = pgTable("audience_seeds", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  artistId: uuid("artist_id").notNull().references(() => artists.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  targetingSpec: jsonb("targeting_spec").notNull(),
+  archived: boolean("archived").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export type Artist = typeof artists.$inferSelect;
+export type Asset = typeof assets.$inferSelect;
+export type Release = typeof releases.$inferSelect;
+export type AudienceSeed = typeof audienceSeeds.$inferSelect;
