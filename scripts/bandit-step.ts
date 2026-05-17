@@ -40,7 +40,7 @@ async function main() {
   for (const id of ids) {
     try {
       const r = await runBanditStep({ campaignId: id, date });
-      console.log(`  campaign=${id} audiences=${r.audiencesProcessed} scored=${r.adsScored} paused=${r.adsPaused} fraud=${r.adsFlaggedFraud} reweighted=${r.budgetsReweighted}`);
+      console.log(`  campaign=${id} audiences=${r.audiencesProcessed} ranked=${r.adsRanked} paused=${r.adsPaused} fraud=${r.adsFlaggedFraud} reweighted=${r.budgetsReweighted} archived=${r.adsArchived}`);
     } catch (err) {
       console.error(`  campaign=${id} error=${err instanceof Error ? err.message : String(err)}`);
     }

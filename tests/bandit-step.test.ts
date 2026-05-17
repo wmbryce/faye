@@ -15,15 +15,15 @@ import type { FBClient } from "@/lib/fb/client";
 // ---------------------------------------------------------------------------
 // Stub FB client that records calls
 // ---------------------------------------------------------------------------
-function recordingFB(): { client: FBClient; calls: { pauseAd: string[]; setBudget: [string, number][] } } {
-  const calls = { pauseAd: [] as string[], setBudget: [] as [string, number][] };
+function recordingFB(): { client: FBClient; calls: { pauseAd: string[]; setBudget: [string, number][]; archiveAd: string[] } } {
+  const calls = { pauseAd: [] as string[], setBudget: [] as [string, number][], archiveAd: [] as string[] };
   const client: FBClient = {
     async createCampaign() { return { id: "x" }; },
     async createAdSet() { return { id: "x" }; },
     async createAdCreative() { return { id: "x" }; },
     async createAd() { return { id: "x" }; },
     async pauseAd(id) { calls.pauseAd.push(id); },
-    async archiveAd() {},
+    async archiveAd(id) { calls.archiveAd.push(id); },
     async setAdSetDailyBudget(id, c) { calls.setBudget.push([id, c]); },
     async pauseAdSet() {},
     async resumeAdSet() {},
@@ -84,6 +84,20 @@ async function insertMetric(adId: string, opts: {
   });
 }
 
+async function seed5PublishedAds() {
+  const { artist, release, seed, asset } = await seedBase();
+  const campaign = await seedCampaign([seed.id], release.id, artist.id);
+  const [audience] = await listAudiencesForCampaign(campaign.id);
+  for (let i = 0; i < 5; i++) {
+    const draft = await createDraftAd({
+      campaignId: campaign.id, audienceId: audience.id, assetId: asset.id,
+      copyHeadline: `Arch${i}`, copyPrimaryText: `ArchP${i}`, copyBody: "",
+    });
+    await publishAd(draft.id);
+  }
+  return { campaign, audience, asset };
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -115,7 +129,7 @@ describe("runBanditStep", () => {
     const result = await runBanditStep({ campaignId: campaign.id, date: DATE, overrides: { fb: client } });
 
     expect(result.audiencesProcessed).toBe(1);
-    expect(result.adsScored).toBe(5);
+    expect(result.adsRanked).toBe(5);
     expect(result.adsPaused).toBe(2);
     expect(result.adsFlaggedFraud).toBe(0);
 
@@ -323,5 +337,31 @@ describe("runBanditStep", () => {
     const allAds = await db.select().from(ads).where(eq(ads.campaignId, campaign.id));
     const pausedCount = allAds.filter((a) => a.status === "paused").length;
     expect(pausedCount).toBe(2);
+  });
+
+  it("archive pass: every 3rd generation kills paused ads older than currentGen - 3", async () => {
+    const { campaign, audience, asset } = await seed5PublishedAds();
+    // Need ads at various generations. Update them directly.
+    const all = await db.select().from(ads).where(eq(ads.campaignId, campaign.id));
+    // Set 3 ads to generation 0 + status paused (these should be killed at gen 3)
+    // and 2 ads to generation 3 + status published (these stay).
+    await db.update(ads).set({ generation: 0, status: "paused" }).where(eq(ads.id, all[0].id));
+    await db.update(ads).set({ generation: 0, status: "paused" }).where(eq(ads.id, all[1].id));
+    await db.update(ads).set({ generation: 0, status: "paused" }).where(eq(ads.id, all[2].id));
+    await db.update(ads).set({ generation: 3, status: "published" }).where(eq(ads.id, all[3].id));
+    await db.update(ads).set({ generation: 3, status: "published" }).where(eq(ads.id, all[4].id));
+    // Give each a fake fbAdId so archiveAd can be observed
+    for (let i = 0; i < all.length; i++) {
+      await db.update(ads).set({ fbAdId: `archived_test_ad_${i}` }).where(eq(ads.id, all[i].id));
+    }
+
+    const rec = recordingFB();
+    // We don't need real metrics for this test — call runBanditStep with no metric rows.
+    const r = await runBanditStep({ campaignId: campaign.id, date: DATE, overrides: { fb: rec.client } });
+    expect(r.adsArchived).toBe(3);
+    expect(rec.calls.archiveAd).toHaveLength(3);
+    // Verify the killed status
+    const killed = await db.select().from(ads).where(and(eq(ads.campaignId, campaign.id), eq(ads.status, "killed")));
+    expect(killed).toHaveLength(3);
   });
 });

@@ -16,6 +16,11 @@ export type AudienceBudgetResult = { audienceId: string; newBudgetCents: number 
  *
  * Outputs sum to (approximately) totalDailyBudgetCents — rounding error of up to
  * `audiences.length` cents is possible.
+ *
+ * Note: when some audiences hit their per-day shift cap and others don't, the
+ * renormalization step can push uncapped audiences slightly beyond ±SHIFT_CAP of
+ * their current share. This is an accepted EXP3 approximation — the cap is
+ * directional ("don't swing wildly"), not strict.
  */
 export function reweighAudienceBudgets(
   scores: AudienceScoreInput[],

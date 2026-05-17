@@ -1,4 +1,4 @@
-import { and, eq, lt, desc } from "drizzle-orm";
+import { and, eq, lt, lte, desc } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   adMetricDaily, releaseMetricDaily, ads, audiences, campaigns,
@@ -23,10 +23,11 @@ export type RunBanditStepArgs = {
 
 export type RunBanditStepResult = {
   audiencesProcessed: number;
-  adsScored: number;
+  adsRanked: number;
   adsPaused: number;
   adsFlaggedFraud: number;
   budgetsReweighted: number;
+  adsArchived: number;
 };
 
 export async function runBanditStep(args: RunBanditStepArgs): Promise<RunBanditStepResult> {
@@ -51,19 +52,27 @@ export async function runBanditStep(args: RunBanditStepArgs): Promise<RunBanditS
     byAudience.set(row.ad.audienceId, list);
   }
 
-  let adsScored = 0;
+  let adsRanked = 0;
   let adsPaused = 0;
   let adsFlaggedFraud = 0;
   const audienceMeanScores: { audienceId: string; meanScore: number; currentBudgetCents: number }[] = [];
 
+  // Pre-fetch all audiences for this campaign once
+  const audsList = await db
+    .select()
+    .from(audiences)
+    .where(eq(audiences.campaignId, args.campaignId));
+  const audById = new Map(audsList.map((a) => [a.id, a]));
+
   for (const [audienceId, rows] of byAudience.entries()) {
-    const [aud] = await db.select().from(audiences).where(eq(audiences.id, audienceId)).limit(1);
+    const aud = audById.get(audienceId);
     if (!aud) continue;
 
     const releaseClicksTotal = rows.reduce((acc, r) => acc + r.metric.smartlinkClicks, 0);
 
     // 1. fraud filter
     const fraudAdIds = new Set<string>();
+    const adByIdInThisAudience = new Map(rows.map((r) => [r.ad.id, r.ad]));
     const snapshots: AdSnapshot[] = [];
     for (const row of rows) {
       const snap: AdSnapshot = {
@@ -95,7 +104,7 @@ export async function runBanditStep(args: RunBanditStepArgs): Promise<RunBanditS
         .update(adMetricDaily)
         .set({ compositeScore: s.score, excludedReason: s.excludedReason ?? null })
         .where(and(eq(adMetricDaily.adId, s.adId), eq(adMetricDaily.date, args.date)));
-      adsScored++;
+      if (s.score !== null) adsRanked++;
     }
 
     // 3. prune + apply
@@ -103,7 +112,7 @@ export async function runBanditStep(args: RunBanditStepArgs): Promise<RunBanditS
     const pruneResult = prune({ audienceId, scored, K: K_SURVIVORS });
     for (const p of pruneResult) {
       if (p.action !== "pause") continue;
-      const [ad] = await db.select().from(ads).where(eq(ads.id, p.adId)).limit(1);
+      const ad = adByIdInThisAudience.get(p.adId);
       if (!ad || ad.status !== "published") continue;
       await db.update(ads).set({ status: "paused" }).where(eq(ads.id, p.adId));
       if (ad.fbAdId) await fb.pauseAd(ad.fbAdId);
@@ -114,7 +123,7 @@ export async function runBanditStep(args: RunBanditStepArgs): Promise<RunBanditS
     // pause fraud ads that are still published
     for (const row of rows) {
       if (!fraudAdIds.has(row.ad.id)) continue;
-      const [ad] = await db.select().from(ads).where(eq(ads.id, row.ad.id)).limit(1);
+      const ad = adByIdInThisAudience.get(row.ad.id);
       if (!ad || ad.status !== "published") continue;
       await db.update(ads).set({ status: "paused" }).where(eq(ads.id, row.ad.id));
       if (ad.fbAdId) await fb.pauseAd(ad.fbAdId);
@@ -140,8 +149,8 @@ export async function runBanditStep(args: RunBanditStepArgs): Promise<RunBanditS
           .update(audiences)
           .set({ dailyBudgetCents: nb.newBudgetCents })
           .where(eq(audiences.id, nb.audienceId));
-        const [a] = await db.select().from(audiences).where(eq(audiences.id, nb.audienceId)).limit(1);
-        if (a?.fbAdSetId) await fb.setAdSetDailyBudget(a.fbAdSetId, nb.newBudgetCents);
+        const audRow = audById.get(nb.audienceId);
+        if (audRow?.fbAdSetId) await fb.setAdSetDailyBudget(audRow.fbAdSetId, nb.newBudgetCents);
         await writeAudit({
           entityType: "audience",
           entityId: nb.audienceId,
@@ -153,7 +162,53 @@ export async function runBanditStep(args: RunBanditStepArgs): Promise<RunBanditS
     }
   }
 
-  return { audiencesProcessed: byAudience.size, adsScored, adsPaused, adsFlaggedFraud, budgetsReweighted };
+  // Archive pass: every 3rd generation, kill paused ads older than `currentGen - 3`.
+  // Prevents accumulation against FB's ad-set ad-count cap. Generations are bumped
+  // by Phase 6's LLM loop — for hand-written-only campaigns this is a no-op.
+  const archivedAds = await archivePass(args.campaignId, fb);
+
+  return {
+    audiencesProcessed: byAudience.size,
+    adsRanked,
+    adsPaused,
+    adsFlaggedFraud,
+    budgetsReweighted,
+    adsArchived: archivedAds,
+  };
+}
+
+async function archivePass(campaignId: string, fb: FBClient): Promise<number> {
+  // max generation across this campaign's ads
+  const allAds = await db
+    .select({ generation: ads.generation })
+    .from(ads)
+    .where(eq(ads.campaignId, campaignId));
+  if (allAds.length === 0) return 0;
+  const currentGen = allAds.reduce((m, x) => Math.max(m, x.generation), 0);
+  if (currentGen === 0 || currentGen % 3 !== 0) return 0;
+
+  const stale = await db
+    .select()
+    .from(ads)
+    .where(and(
+      eq(ads.campaignId, campaignId),
+      eq(ads.status, "paused"),
+      lte(ads.generation, currentGen - 3),
+    ));
+
+  let n = 0;
+  for (const ad of stale) {
+    await db.update(ads).set({ status: "killed" }).where(eq(ads.id, ad.id));
+    if (ad.fbAdId) await fb.archiveAd(ad.fbAdId);
+    await writeAudit({
+      entityType: "ad",
+      entityId: ad.id,
+      event: "killed_by_archive_pass",
+      payload: { generation: ad.generation, currentGen },
+    });
+    n++;
+  }
+  return n;
 }
 
 async function computeBaseline(releaseId: string, campaignStart: string): Promise<number> {
