@@ -116,6 +116,12 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
         )}
       </section>
 
+      {ads.length > 0 && (
+        <p className="mt-6 text-sm">
+          <Link href={`/campaigns/${campaign.id}/ads`} className="underline">View all ads →</Link>
+        </p>
+      )}
+
       {ads.length === 0 && (
         <section className="mt-10">
           <EmptyState
