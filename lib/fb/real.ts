@@ -106,6 +106,8 @@ export function makeFBRealClient(args: {
     async pauseAd(adId) { await post(`/${adId}`, { status: "PAUSED" }); },
     async archiveAd(adId) { await post(`/${adId}`, { status: "ARCHIVED" }); },
     async setAdSetDailyBudget(adSetId, cents) { await post(`/${adSetId}`, { daily_budget: cents }); },
+    async pauseAdSet(adSetId) { await post(`/${adSetId}`, { status: "PAUSED" }); },
+    async resumeAdSet(adSetId) { await post(`/${adSetId}`, { status: "ACTIVE" }); },
 
     async getAdInsights(adId, date) {
       const j = await get(`/${adId}/insights`, {

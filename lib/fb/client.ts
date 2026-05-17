@@ -48,6 +48,8 @@ export interface FBClient {
   pauseAd(adId: string): Promise<void>;
   archiveAd(adId: string): Promise<void>;
   setAdSetDailyBudget(adSetId: string, cents: number): Promise<void>;
+  pauseAdSet(adSetId: string): Promise<void>;
+  resumeAdSet(adSetId: string): Promise<void>;
 
   getAdInsights(adId: string, date: string): Promise<AdInsights | null>;
 }
