@@ -10,3 +10,7 @@ coverage/
 .vercel
 /uploads/
 !/uploads/.gitkeep
+
+# We use pnpm; npm/yarn lockfiles should not be committed.
+package-lock.json
+yarn.lock
