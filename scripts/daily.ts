@@ -4,7 +4,7 @@ import { campaigns } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { runDailyLoop } from "@/lib/loop/daily";
 import { shouldRunNow } from "@/lib/loop/schedule";
-import { arg, yesterdayISO } from "./_shared";
+import { arg } from "./_shared";
 
 async function main() {
   const explicitCampaign = arg("campaign");
@@ -43,11 +43,10 @@ async function main() {
     return;
   }
 
-  const yesterday = explicitDate ?? yesterdayISO();
-  console.log(`daily: running ${toRun.length} campaign(s) for date=${yesterday}`);
+  console.log(`daily: running ${toRun.length} campaign(s)${explicitDate ? ` for date=${explicitDate}` : " (artist-local yesterday)"}`);
   for (const { id } of toRun) {
     try {
-      const r = await runDailyLoop({ campaignId: id, yesterday });
+      const r = await runDailyLoop({ campaignId: id, ...(explicitDate ? { yesterday: explicitDate } : {}) });
       console.log(
         `  campaign=${id} audiences=${r.audiencesProcessed} variants=${r.variantsGenerated} safe=${r.variantsSafe} blocked=${r.variantsBlocked} staged=${r.pendingAdsStaged} gen=${r.generation}`
       );

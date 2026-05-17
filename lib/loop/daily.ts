@@ -14,11 +14,16 @@ import { runGenerate } from "./generate";
 import { runSafety } from "./safety";
 import { pickAsset } from "./asset-pick";
 import { resolveModels, DEFAULTS } from "./defaults";
+import { yesterdayInTimezone } from "./schedule";
 
 export type RunDailyLoopArgs = {
   campaignId: string;
-  /** ISO YYYY-MM-DD; defaults to yesterday in artist timezone (caller computes). */
-  yesterday: string;
+  /**
+   * ISO YYYY-MM-DD. When omitted, defaults to the calendar day before `now` in
+   * the artist's IANA timezone (so a 09:00-local cron always refers to the
+   * correct local yesterday, not a UTC-shifted one).
+   */
+  yesterday?: string;
   /** Override "now" for tests so publish_at is deterministic. */
   now?: Date;
   /** Test injection. */
@@ -62,6 +67,9 @@ export async function runDailyLoop(args: RunDailyLoopArgs): Promise<RunDailyLoop
 
   const artist = await getArtist(campaign.artistId);
   if (!artist) throw new Error(`artist not found: ${campaign.artistId}`);
+
+  // Derive yesterday from the artist's local timezone when the caller omits it.
+  const yesterday = args.yesterday ?? yesterdayInTimezone(args.now ?? new Date(), artist.timezone);
 
   const release = await getRelease(campaign.releaseId);
   if (!release) throw new Error(`release not found: ${campaign.releaseId}`);
@@ -111,7 +119,7 @@ export async function runDailyLoop(args: RunDailyLoopArgs): Promise<RunDailyLoop
       .select({ ad: ads, metric: adMetricDaily })
       .from(adMetricDaily)
       .innerJoin(ads, eq(ads.id, adMetricDaily.adId))
-      .where(and(eq(ads.audienceId, audience.id), eq(adMetricDaily.date, args.yesterday)));
+      .where(and(eq(ads.audienceId, audience.id), eq(adMetricDaily.date, yesterday)));
 
     // b. Rank by composite_score desc (nulls excluded)
     const ranked = rows
@@ -133,7 +141,7 @@ export async function runDailyLoop(args: RunDailyLoopArgs): Promise<RunDailyLoop
           survivors,
           killed,
           campaignId: args.campaignId,
-          date: args.yesterday,
+          date: yesterday,
           model: models.critique,
         });
 
@@ -144,7 +152,7 @@ export async function runDailyLoop(args: RunDailyLoopArgs): Promise<RunDailyLoop
       audienceDescription: audience.name,
       n: DEFAULTS.N_VARIANTS_PER_AUDIENCE,
       campaignId: args.campaignId,
-      date: args.yesterday,
+      date: yesterday,
       model: models.generate,
     });
     totalGenerated += variants.length;
@@ -154,7 +162,7 @@ export async function runDailyLoop(args: RunDailyLoopArgs): Promise<RunDailyLoop
       variants,
       contextBlock,
       campaignId: args.campaignId,
-      date: args.yesterday,
+      date: yesterday,
       model: models.safety,
     });
 
@@ -215,7 +223,7 @@ export async function runDailyLoop(args: RunDailyLoopArgs): Promise<RunDailyLoop
     entityId: args.campaignId,
     event: "daily_loop_complete",
     payload: {
-      yesterday: args.yesterday,
+      yesterday: yesterday,
       audiencesProcessed: audiences.length,
       variantsGenerated: totalGenerated,
       variantsSafe: totalSafe,

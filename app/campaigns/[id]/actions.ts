@@ -3,7 +3,6 @@ import { revalidatePath } from "next/cache";
 import { currentUser } from "@/lib/auth/current-user";
 import { pauseCampaign, resumeCampaign, endCampaign } from "@/lib/campaigns/lifecycle";
 import { runDailyLoop } from "@/lib/loop/daily";
-import { yesterdayISO } from "@/scripts/_shared";
 
 async function requireUser() {
   if (!(await currentUser())) throw new Error("unauthorized");
@@ -39,7 +38,7 @@ export async function runDailyLoopAction(campaignId: string): Promise<{
   generation: number;
 }> {
   await requireUser();
-  const r = await runDailyLoop({ campaignId, yesterday: yesterdayISO() });
+  const r = await runDailyLoop({ campaignId });
   revalidatePath(`/campaigns/${campaignId}`);
   return {
     audiencesProcessed: r.audiencesProcessed,

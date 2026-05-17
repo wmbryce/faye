@@ -1,6 +1,6 @@
 import { getSecret } from "@/lib/secrets/queries";
 
-export const DEFAULT_MODELS = {
+const DEFAULT_MODELS = {
   critique: "anthropic/claude-opus-4-7",
   generate: "anthropic/claude-sonnet-4-6",
   safety:   "anthropic/claude-haiku-4-5",

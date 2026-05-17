@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { localHour, shouldRunNow } from "@/lib/loop/schedule";
+import { localHour, shouldRunNow, yesterdayInTimezone } from "@/lib/loop/schedule";
 
 describe("localHour", () => {
   it("UTC 15:00 in summer → 09:00 in America/Denver", () => {
@@ -29,5 +29,27 @@ describe("shouldRunNow", () => {
 
   it("returns false when local hour is not 09", () => {
     expect(shouldRunNow(new Date("2026-06-15T10:00:00Z"), "UTC")).toBe(false);
+  });
+});
+
+describe("yesterdayInTimezone", () => {
+  it("UTC: subtracts one calendar day", () => {
+    expect(yesterdayInTimezone(new Date("2026-06-15T09:00:00Z"), "UTC")).toBe("2026-06-14");
+  });
+
+  it("crosses day boundary forward in west-of-UTC zones", () => {
+    // 2026-06-15T05:00Z = 2026-06-14T23:00 in America/Denver (MDT, UTC-6)
+    // So local "today" is 2026-06-14 and yesterday is 2026-06-13.
+    expect(yesterdayInTimezone(new Date("2026-06-15T05:00:00Z"), "America/Denver")).toBe("2026-06-13");
+  });
+
+  it("crosses day boundary backward in east-of-UTC zones", () => {
+    // 2026-06-15T22:00Z = 2026-06-16T00:00 in Asia/Tokyo (UTC+9)
+    // So local "today" is 2026-06-16 and yesterday is 2026-06-15.
+    expect(yesterdayInTimezone(new Date("2026-06-15T22:00:00Z"), "Asia/Tokyo")).toBe("2026-06-15");
+  });
+
+  it("respects month boundaries", () => {
+    expect(yesterdayInTimezone(new Date("2026-07-01T09:00:00Z"), "UTC")).toBe("2026-06-30");
   });
 });
