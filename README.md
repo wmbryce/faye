@@ -34,3 +34,16 @@ pnpm test
 - Copy `deploy/faye-web.service` to `/etc/systemd/system/`, enable + start
 - Copy `deploy/Caddyfile` to `/etc/caddy/Caddyfile`, reload Caddy
 - `pg_dump` cron → Backblaze B2 (configured in Phase 8)
+
+## Backups
+
+Nightly `pg_dump` of `faye_prod` → gzip → Backblaze B2 (`b2://faye-backups/db/<UTC-timestamp>.sql.gz`). The cron line lives in `deploy/cron.example`; the script is `deploy/backup.sh`.
+
+Prereqs on the deploy box:
+- `postgresql-client` (`pg_dump`) installed
+- `b2` CLI installed + authorized for the `faye-backups` bucket
+- `BACKUP_BUCKET` (defaults to `faye-backups`) settable via env
+
+> Ensure `/opt/faye/.env` is `chmod 600` and owned by the `faye` user; `backup.sh` sources it via `set -o allexport` and the resulting process env briefly carries `DATABASE_URL`.
+
+Restore drill: `b2 file download b2://faye-backups/db/<file>.sql.gz - | gunzip | psql faye_dev` against a scratch DB. Run weekly during the first month to verify.

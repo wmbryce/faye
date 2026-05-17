@@ -219,3 +219,30 @@ export async function rejectPendingAd(campaignId: string, adId: string): Promise
     payload: { reason: "operator-in-app", source: "in-app" },
   });
 }
+
+/**
+ * Webhook-driven rejection. Atomic conditional UPDATE skips the write when the
+ * ad is already rejected, so Meta retries don't append duplicate audits.
+ */
+export async function markAdRejectedByFb(fbAdId: string, reason: string): Promise<{ matched: number }> {
+  const [ad] = await db.select().from(ads).where(eq(ads.fbAdId, fbAdId)).limit(1);
+  if (!ad) return { matched: 0 };
+  const previousStatus = ad.status;
+  const updated = await db
+    .update(ads)
+    .set({
+      status: "rejected",
+      rejectedAt: new Date(),
+      rejectedReason: reason,
+    })
+    .where(and(eq(ads.id, ad.id), eq(ads.status, previousStatus)))
+    .returning({ id: ads.id });
+  if (updated.length === 0) return { matched: 1 };  // already rejected by a concurrent write
+  await writeAudit({
+    entityType: "ad",
+    entityId: ad.id,
+    event: "fb_disapproved",
+    payload: { previousStatus, reason, fbAdId, source: "fb-webhook" },
+  });
+  return { matched: 1 };
+}

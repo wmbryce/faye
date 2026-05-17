@@ -14,3 +14,6 @@
 # Daily LLM loop — runs HOURLY. Per-campaign filter inside picks only campaigns
 # whose artist-local hour is 09:00. Collapses 24 tz buckets into one crontab line.
 0 * * * * faye cd /opt/faye && (/usr/bin/pnpm exec tsx scripts/daily.ts --all && /usr/bin/pnpm exec tsx scripts/digest.ts --all) >> /var/log/faye/daily.log 2>&1
+
+# Nightly DB backup → Backblaze B2. Bucket name + retention set via BACKUP_BUCKET / RETAIN_DAYS env or B2 lifecycle.
+30 5 * * * faye /opt/faye/deploy/backup.sh >> /var/log/faye/backup.log 2>&1

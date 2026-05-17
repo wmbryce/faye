@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { redirect, notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth/current-user";
 import { Shell } from "@/components/layout/shell";
 import { PageHeader } from "@/components/layout/page-header";
@@ -8,26 +8,44 @@ import { Badge, statusVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Stat } from "@/components/ui/stat";
 import { EmptyState } from "@/components/ui/empty-state";
-import { getCampaign, listAudiencesForCampaign } from "@/lib/campaigns/queries";
+import { getCampaignContext, listAudiencesForCampaign } from "@/lib/campaigns/queries";
 import { listAds } from "@/lib/ads/queries";
-import { getArtist } from "@/lib/artists/queries";
-import { getRelease } from "@/lib/releases/queries";
 import { AdCard } from "@/components/campaigns/ad-card";
 import { pauseCampaignAction, resumeCampaignAction, endCampaignAction } from "./actions";
 import { RunDailyLoopButton } from "@/components/campaigns/run-daily-loop-button";
+import { SpendStreamsChart } from "@/components/charts/spend-streams-chart";
+import { spendStreamSeries } from "@/lib/metrics/timeseries";
+import { getCampaignDegradedFlags } from "@/lib/metrics/queries";
+import { DegradedBanner } from "@/components/degraded-banner";
 
 export default async function CampaignDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await currentUser();
   if (!user) redirect("/login");
   const { id } = await params;
-  const campaign = await getCampaign(id);
-  if (!campaign) notFound();
-  const [artist, release, audiences, ads] = await Promise.all([
-    getArtist(campaign.artistId),
-    getRelease(campaign.releaseId),
+  const { campaign, artist, release } = await getCampaignContext(id);
+  const [audiences, ads, series, flags] = await Promise.all([
     listAudiencesForCampaign(campaign.id),
     listAds({ campaignId: campaign.id }),
+    spendStreamSeries({
+      campaignId: campaign.id,
+      releaseId: campaign.releaseId,
+      campaignStartDate: campaign.startDate,
+      fromDate: campaign.startDate,
+      toDate: campaign.endDate,
+    }),
+    getCampaignDegradedFlags({
+      campaignId: campaign.id,
+      releaseId: campaign.releaseId,
+      fromDate: campaign.startDate,
+      toDate: campaign.endDate,
+    }),
   ]);
+  const chartData = series.map((p) => ({
+    date: p.date,
+    spendUsd: p.spendCents / 100,
+    streams: p.streams,
+    baseline: p.baseline,
+  }));
 
   const adsByAudience = new Map<string, typeof ads>();
   for (const a of ads) {
@@ -74,9 +92,14 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
             <Link href={`/campaigns/${campaign.id}/audit`}>
               <Button variant="ghost" size="sm">Audit log →</Button>
             </Link>
+            <Link href={`/campaigns/${campaign.id}/costs`}>
+              <Button variant="ghost" size="sm">Costs →</Button>
+            </Link>
           </div>
         }
       />
+
+      <DegradedBanner s4aMissing={flags.s4aMissing} fraudExcluded={flags.fraudExcluded} />
 
       <section className="mt-8 grid sm:grid-cols-3 gap-4">
         <Card>
@@ -94,6 +117,15 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
             <Stat label="Ads" value={ads.length} />
           </CardContent>
         </Card>
+      </section>
+
+      <section className="mt-8">
+        <Card>
+          <CardContent className="p-5">
+            <SpendStreamsChart data={chartData} />
+          </CardContent>
+        </Card>
+        {/* TODO: audience-budget chart pending audience_budget_daily snapshot — see plan 8 task 3 */}
       </section>
 
       <section className="mt-10">
