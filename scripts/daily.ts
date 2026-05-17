@@ -44,6 +44,7 @@ async function main() {
   }
 
   console.log(`daily: running ${toRun.length} campaign(s)${explicitDate ? ` for date=${explicitDate}` : " (artist-local yesterday)"}`);
+  let failed = 0;
   for (const { id } of toRun) {
     try {
       const r = await runDailyLoop({ campaignId: id, ...(explicitDate ? { yesterday: explicitDate } : {}) });
@@ -51,16 +52,16 @@ async function main() {
         `  campaign=${id} audiences=${r.audiencesProcessed} variants=${r.variantsGenerated} safe=${r.variantsSafe} blocked=${r.variantsBlocked} staged=${r.pendingAdsStaged} gen=${r.generation}`
       );
     } catch (err) {
+      failed++;
       console.error(
         `  campaign=${id} error=${err instanceof Error ? err.message : String(err)}`
       );
     }
   }
+  if (failed > 0) throw new Error(`daily: ${failed} campaign(s) failed`);
 }
 
-main()
-  .then(() => process.exit(0))
-  .catch((err) => {
-    console.error(err);
-    process.exit(1);
-  });
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

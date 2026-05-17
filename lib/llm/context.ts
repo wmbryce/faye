@@ -9,14 +9,24 @@ import type { Artist, Release } from "@/lib/db/schema";
  * a single run-day's calls, so OpenRouter pass-through prompt caching gives a
  * big cost reduction.
  */
+const MAX_ASSETS_IN_PROMPT = 20;
+
 export async function buildArtistContextBlock(args: {
   artist: Artist;
   release: Release;
 }): Promise<Message> {
   const assets = await listAssets(args.artist.id);
-  const assetLines = assets.length === 0
-    ? "(none uploaded)"
-    : assets.map((a) => `- ${a.label || "(unlabeled)"} (${a.kind})`).join("\n");
+  let assetLines: string;
+  if (assets.length === 0) {
+    assetLines = "(none uploaded)";
+  } else {
+    const shown = assets.slice(0, MAX_ASSETS_IN_PROMPT);
+    const lines = shown.map((a) => `- ${a.label || "(unlabeled)"} (${a.kind})`);
+    if (assets.length > MAX_ASSETS_IN_PROMPT) {
+      lines.push(`(${assets.length - MAX_ASSETS_IN_PROMPT} more assets omitted)`);
+    }
+    assetLines = lines.join("\n");
+  }
   const content = [
     "# Artist",
     `Name: ${args.artist.name}`,

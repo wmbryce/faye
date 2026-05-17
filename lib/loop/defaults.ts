@@ -19,11 +19,23 @@ export type ResolvedModels = {
   safety: string;
 };
 
+async function readModelSecret(key: string): Promise<string | null> {
+  try {
+    const raw = await getSecret(key);
+    const trimmed = raw?.trim();
+    return trimmed ? trimmed : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function resolveModels(): Promise<ResolvedModels> {
+  // Read each secret tolerantly: a single failure or blank value falls back to
+  // the static default, instead of taking the other two down with it.
   const [c, g, s] = await Promise.all([
-    getSecret("llm.model.critique"),
-    getSecret("llm.model.generate"),
-    getSecret("llm.model.safety"),
+    readModelSecret("llm.model.critique"),
+    readModelSecret("llm.model.generate"),
+    readModelSecret("llm.model.safety"),
   ]);
   return {
     critique: c ?? DEFAULT_MODELS.critique,

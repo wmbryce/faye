@@ -1,0 +1,3 @@
+ALTER TABLE "llm_runs" ADD CONSTRAINT "llm_runs_tokens_nonnegative_chk" CHECK ("llm_runs"."input_tokens" >= 0 AND "llm_runs"."output_tokens" >= 0 AND "llm_runs"."cached_input_tokens" >= 0);--> statement-breakpoint
+ALTER TABLE "llm_runs" ADD CONSTRAINT "llm_runs_cached_le_input_chk" CHECK ("llm_runs"."cached_input_tokens" <= "llm_runs"."input_tokens");--> statement-breakpoint
+ALTER TABLE "llm_runs" ADD CONSTRAINT "llm_runs_cost_nonnegative_chk" CHECK ("llm_runs"."cost_cents" IS NULL OR "llm_runs"."cost_cents" >= 0);

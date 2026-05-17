@@ -88,4 +88,18 @@ describe("estimateCostCents", () => {
     // total = 0.0234 USD = 2.34 → rounded to 2 cents
     expect(cents).toBe(2);
   });
+
+  it("clamps cachedInputTokens > inputTokens so cost never goes negative", () => {
+    const cents = estimateCostCents({
+      inputTokens: 1_000,
+      outputTokens: 0,
+      cachedInputTokens: 5_000, // upstream misreport: bigger than input
+      inputUsdPerM: 3,
+      outputUsdPerM: 15,
+    });
+    // cached clamps to 1000, fresh = 0:
+    // 1000 cached * 0.3/M = 0.0003 USD → 0.03 cents → rounds to 0
+    expect(cents).toBeGreaterThanOrEqual(0);
+    expect(cents).toBe(0);
+  });
 });

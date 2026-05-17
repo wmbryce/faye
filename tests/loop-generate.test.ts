@@ -80,6 +80,14 @@ describe("parseGenerateOutput", () => {
     expect(parseGenerateOutput("not json", 5)).toEqual([]);
     expect(parseGenerateOutput("{}", 5)).toEqual([]);
   });
+
+  it("returns [] for non-positive variant counts", () => {
+    const payload = JSON.stringify({
+      variants: [{ copyHeadline: "h", copyPrimaryText: "p", copyBody: "b", assetHint: "x" }],
+    });
+    expect(parseGenerateOutput(payload, 0)).toEqual([]);
+    expect(parseGenerateOutput(payload, -1)).toEqual([]);
+  });
 });
 
 describe("runGenerate", () => {

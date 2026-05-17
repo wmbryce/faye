@@ -44,6 +44,9 @@ const MAX_TOKENS = 1200;
 const TEMPERATURE = 0.9;
 
 export async function runGenerate(client: LLMClient, input: GenerateInput): Promise<AdVariant[]> {
+  const target = Number.isFinite(input.n) ? Math.max(0, Math.floor(input.n)) : 0;
+  if (target === 0) return [];
+
   const userText = formatGenerateRequest(input);
   const messages: Message[] = [
     input.contextBlock,
@@ -59,7 +62,7 @@ export async function runGenerate(client: LLMClient, input: GenerateInput): Prom
     max_tokens: MAX_TOKENS,
   });
 
-  const variants = parseGenerateOutput(resp.text, input.n);
+  const variants = parseGenerateOutput(resp.text, target);
 
   await logLLMRun({
     campaignId: input.campaignId,
@@ -89,6 +92,9 @@ function formatGenerateRequest(i: GenerateInput): string {
 
 /** Tolerant JSON parser: clips fields, drops malformed variants, truncates to N. */
 export function parseGenerateOutput(text: string, n: number): AdVariant[] {
+  const limit = Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
+  if (limit === 0) return [];
+
   let raw: unknown;
   try { raw = JSON.parse(text); } catch { return []; }
   const root = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
@@ -103,7 +109,7 @@ export function parseGenerateOutput(text: string, n: number): AdVariant[] {
     const assetHint = typeof obj.assetHint === "string" ? obj.assetHint.trim() : "any";
     if (!copyHeadline || !copyPrimaryText) continue;
     variants.push({ copyHeadline, copyPrimaryText, copyBody, assetHint: assetHint || "any" });
-    if (variants.length >= n) break;
+    if (variants.length >= limit) break;
   }
   return variants;
 }

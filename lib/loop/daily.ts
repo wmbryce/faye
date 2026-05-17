@@ -110,9 +110,13 @@ export async function runDailyLoop(args: RunDailyLoopArgs): Promise<RunDailyLoop
   let totalBlocked = 0;
   let totalStaged = 0;
 
-  // 6. Per-audience loop
+  // 6. Per-audience loop. Each audience is isolated in try/catch: one bad pass
+  // (LLM throw / parser blow-up / insert error) audits the failure and moves on
+  // instead of aborting remaining audiences and the completion audit.
+  let audiencesFailed = 0;
   for (let audienceIndex = 0; audienceIndex < audiences.length; audienceIndex++) {
     const audience = audiences[audienceIndex];
+    try {
 
     // a. Pull yesterday's ad_metric_daily rows for this audience
     const rows = await db
@@ -215,6 +219,19 @@ export async function runDailyLoop(args: RunDailyLoopArgs): Promise<RunDailyLoop
         generation: nextGen,
       },
     });
+    } catch (error) {
+      audiencesFailed++;
+      await writeAudit({
+        entityType: "campaign",
+        entityId: args.campaignId,
+        event: "daily_loop_audience_failed",
+        payload: {
+          audienceId: audience.id,
+          generation: nextGen,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      });
+    }
   }
 
   // 7. Final audit
@@ -225,6 +242,7 @@ export async function runDailyLoop(args: RunDailyLoopArgs): Promise<RunDailyLoop
     payload: {
       yesterday: yesterday,
       audiencesProcessed: audiences.length,
+      audiencesFailed,
       variantsGenerated: totalGenerated,
       variantsSafe: totalSafe,
       variantsBlocked: totalBlocked,

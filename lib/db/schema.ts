@@ -209,6 +209,18 @@ export const llmRuns = pgTable("llm_runs", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   campaignDateIdx: index("llm_runs_campaign_date_idx").on(t.campaignId, t.date),
+  tokensNonNegativeChk: check(
+    "llm_runs_tokens_nonnegative_chk",
+    sql`${t.inputTokens} >= 0 AND ${t.outputTokens} >= 0 AND ${t.cachedInputTokens} >= 0`,
+  ),
+  cachedLeInputChk: check(
+    "llm_runs_cached_le_input_chk",
+    sql`${t.cachedInputTokens} <= ${t.inputTokens}`,
+  ),
+  costNonNegativeChk: check(
+    "llm_runs_cost_nonnegative_chk",
+    sql`${t.costCents} IS NULL OR ${t.costCents} >= 0`,
+  ),
 }));
 
 export type LLMRun = typeof llmRuns.$inferSelect;
