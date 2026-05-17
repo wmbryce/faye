@@ -23,19 +23,14 @@ export async function GET(req: Request) {
   let [user] = await db.select().from(users).where(eq(users.email, email));
   if (!user) [user] = await db.insert(users).values({ email }).returning();
   const { token: sessionToken, expiresAt } = await createSession({ userId: user.id });
-  const cookieValue = [
-    `${SESSION_COOKIE_NAME}=${sessionToken}`,
-    `Path=/`,
-    `Max-Age=${SESSION_COOKIE_MAX_AGE}`,
-    `Expires=${expiresAt.toUTCString()}`,
-    `HttpOnly`,
-    env().NODE_ENV === "production" ? `Secure` : "",
-    `SameSite=Lax`,
-  ]
-    .filter(Boolean)
-    .join("; ");
-  return new Response(null, {
-    status: 302,
-    headers: { Location: "/", "Set-Cookie": cookieValue },
+  const res = NextResponse.redirect(new URL("/", env().APP_URL), { status: 302 });
+  res.cookies.set(SESSION_COOKIE_NAME, sessionToken, {
+    httpOnly: true,
+    secure: env().NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: SESSION_COOKIE_MAX_AGE,
+    expires: expiresAt,
   });
+  return res;
 }

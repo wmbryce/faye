@@ -59,7 +59,8 @@ describe("auth", () => {
     const url = sendMagicLinkMock.mock.calls[0][0].url as string;
     const res = await verifyGET(makeReq(url));
     expect(res.status).toBe(302);
-    expect(res.headers.get("location")).toBe("/");
+    const loc = res.headers.get("location")!;
+    expect(new URL(loc).pathname).toBe("/");
     expect(res.headers.get("set-cookie")).toContain(`${SESSION_COOKIE_NAME}=`);
     const rows = await db.select().from(users).where(eq(users.email, process.env.OPERATOR_EMAIL!));
     expect(rows).toHaveLength(1);
