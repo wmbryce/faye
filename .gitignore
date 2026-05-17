@@ -6,5 +6,5 @@ out/
 *.log
 .DS_Store
 coverage/
-.tsbuildinfo
+*.tsbuildinfo
 .vercel
