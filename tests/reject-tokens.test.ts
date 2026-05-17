@@ -93,4 +93,15 @@ describe("reject tokens", () => {
     expect(v.ok).toBe(false);
     if (!v.ok) expect(v.reason).toBe("malformed");
   });
+
+  it("consume is idempotent against concurrent retries", async () => {
+    const { ad } = await seedAd();
+    const token = await makeRejectToken(ad.id);
+    const v = await verifyRejectToken(token);
+    expect(v.ok).toBe(true);
+    if (!v.ok) return;
+    await consumeRejectToken({ nonce: v.nonce, adId: v.adId });
+    // Second call should silently succeed (onConflictDoNothing)
+    await expect(consumeRejectToken({ nonce: v.nonce, adId: v.adId })).resolves.toBeUndefined();
+  });
 });

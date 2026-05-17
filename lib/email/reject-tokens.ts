@@ -40,5 +40,5 @@ export async function verifyRejectToken(token: string): Promise<RejectVerifyResu
 
 /** Record the nonce so a re-use returns `already_used`. */
 export async function consumeRejectToken(args: { nonce: string; adId: string }): Promise<void> {
-  await db.insert(consumedRejectTokens).values(args);
+  await db.insert(consumedRejectTokens).values(args).onConflictDoNothing();
 }

@@ -13,4 +13,4 @@
 
 # Daily LLM loop — runs HOURLY. Per-campaign filter inside picks only campaigns
 # whose artist-local hour is 09:00. Collapses 24 tz buckets into one crontab line.
-0 * * * * faye cd /opt/faye && /usr/bin/pnpm exec tsx scripts/daily.ts --all && /usr/bin/pnpm exec tsx scripts/digest.ts --all >> /var/log/faye/daily.log 2>&1
+0 * * * * faye cd /opt/faye && (/usr/bin/pnpm exec tsx scripts/daily.ts --all && /usr/bin/pnpm exec tsx scripts/digest.ts --all) >> /var/log/faye/daily.log 2>&1
