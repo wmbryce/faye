@@ -350,6 +350,89 @@ describe("runDailyLoop", () => {
     expect(campaignPending).toHaveLength(0);
   });
 
+  describe("cold start", () => {
+    it("skips critique when currentGen < COLD_START_GENS (no ads seeded)", async () => {
+      // No ads seeded → currentGen=0 → cold-start path
+      const { campaign, asset } = await seedFull({
+        spotifyArtistId: "daily_cs_skip_artist",
+        spotifyId: "daily_cs_skip_track",
+      });
+
+      let critiqueCalls = 0;
+      const client: LLMClient = {
+        async generate(req: GenerateRequest): Promise<GenerateResponse> {
+          const allContent = req.messages.map((m) => m.content).join(" ");
+          let text: string;
+          if (allContent.includes("You analyze Facebook ad performance")) {
+            critiqueCalls++;
+            text = JSON.stringify({ winningThemes: [], tiredThemes: [], notes: "" });
+          } else if (allContent.includes("You write Facebook ad copy")) {
+            text = JSON.stringify(makeVariants(5));
+          } else {
+            text = JSON.stringify({ ok: true, reasons: [] });
+          }
+          return { id: "mock", model: req.model, text, usage: { input_tokens: 10, output_tokens: 5, cached_input_tokens: 0, cost_usd: null } };
+        },
+      };
+
+      const r = await runDailyLoop({
+        campaignId: campaign.id,
+        yesterday: YESTERDAY,
+        now: NOW,
+        overrides: { llm: client },
+      });
+
+      expect(r.coldStart).toBe(true);
+      expect(critiqueCalls).toBe(0);
+    });
+
+    it("runs critique when currentGen >= COLD_START_GENS", async () => {
+      const { campaign, audiences: [audience], asset } = await seedFull({
+        spotifyArtistId: "daily_cs_run_artist",
+        spotifyId: "daily_cs_run_track",
+      });
+
+      // Insert an ad at generation 4 → currentGen=4 >= COLD_START_GENS (4) → not cold start
+      await db.insert(adsTable).values({
+        campaignId: campaign.id,
+        audienceId: audience.id,
+        assetId: asset.id,
+        generation: 4,
+        copyHeadline: "Old Ad",
+        copyPrimaryText: "Old Copy",
+        copyBody: "",
+        status: "published",
+      });
+
+      let critiqueCalls = 0;
+      const client: LLMClient = {
+        async generate(req: GenerateRequest): Promise<GenerateResponse> {
+          const allContent = req.messages.map((m) => m.content).join(" ");
+          let text: string;
+          if (allContent.includes("You analyze Facebook ad performance")) {
+            critiqueCalls++;
+            text = JSON.stringify({ winningThemes: [], tiredThemes: [], notes: "" });
+          } else if (allContent.includes("You write Facebook ad copy")) {
+            text = JSON.stringify(makeVariants(5));
+          } else {
+            text = JSON.stringify({ ok: true, reasons: [] });
+          }
+          return { id: "mock", model: req.model, text, usage: { input_tokens: 10, output_tokens: 5, cached_input_tokens: 0, cost_usd: null } };
+        },
+      };
+
+      const r = await runDailyLoop({
+        campaignId: campaign.id,
+        yesterday: YESTERDAY,
+        now: NOW,
+        overrides: { llm: client },
+      });
+
+      expect(r.coldStart).toBe(false);
+      expect(critiqueCalls).toBeGreaterThanOrEqual(1);
+    });
+  });
+
   it("parentAdId on staged ad points to top survivor's id", async () => {
     const { campaign, audiences: [audience], asset } = await seedFull({
       spotifyArtistId: "daily_parent_artist",

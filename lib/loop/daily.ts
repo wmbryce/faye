@@ -9,7 +9,7 @@ import { writeAudit } from "@/lib/audit/log";
 import { makeLLMClient } from "@/lib/llm/factory";
 import type { LLMClient } from "@/lib/llm/client";
 import { buildArtistContextBlock } from "@/lib/llm/context";
-import { runCritique, type CritiqueAd } from "./critique";
+import { runCritique, type CritiqueAd, type CritiqueOutput } from "./critique";
 import { runGenerate } from "./generate";
 import { runSafety } from "./safety";
 import { pickAsset } from "./asset-pick";
@@ -33,6 +33,13 @@ export type RunDailyLoopResult = {
   variantsBlocked: number;
   pendingAdsStaged: number;
   generation: number;
+  coldStart: boolean;
+};
+
+const COLD_START_CRITIQUE: CritiqueOutput = {
+  winningThemes: [],
+  tiredThemes: [],
+  notes: "cold start — explore freely",
 };
 
 function toCritiqueAd(r: { ad: Ad; metric: AdMetricDaily }): CritiqueAd {
@@ -66,6 +73,7 @@ export async function runDailyLoop(args: RunDailyLoopArgs): Promise<RunDailyLoop
     .where(eq(ads.campaignId, args.campaignId));
   const currentGen = genRow?.maxGen ?? 0;
   const nextGen = currentGen + 1;
+  const isColdStart = currentGen < DEFAULTS.COLD_START_GENS;
 
   // 3. Build context, list assets, list audiences
   const contextBlock = await buildArtistContextBlock({ artist, release });
@@ -77,6 +85,16 @@ export async function runDailyLoop(args: RunDailyLoopArgs): Promise<RunDailyLoop
 
   // 5. LLM client
   const llm = args.overrides?.llm ?? await makeLLMClient();
+
+  // Cold-start audit (once per campaign)
+  if (isColdStart) {
+    await writeAudit({
+      entityType: "campaign",
+      entityId: args.campaignId,
+      event: "cold_start_skipped_critique",
+      payload: { generation: nextGen, threshold: DEFAULTS.COLD_START_GENS },
+    });
+  }
 
   // Accumulators
   let totalGenerated = 0;
@@ -107,15 +125,17 @@ export async function runDailyLoop(args: RunDailyLoopArgs): Promise<RunDailyLoop
     // c. Top survivor's ad ID for parentAdId
     const topSurvivorId = ranked[0]?.ad?.id ?? null;
 
-    // d. Run critique
-    const critique = await runCritique(llm, {
-      contextBlock,
-      survivors,
-      killed,
-      campaignId: args.campaignId,
-      date: args.yesterday,
-      model: models.critique,
-    });
+    // d. Run critique (skip during cold start)
+    const critique = isColdStart
+      ? COLD_START_CRITIQUE
+      : await runCritique(llm, {
+          contextBlock,
+          survivors,
+          killed,
+          campaignId: args.campaignId,
+          date: args.yesterday,
+          model: models.critique,
+        });
 
     // e. Run generate
     const variants = await runGenerate(llm, {
@@ -213,5 +233,6 @@ export async function runDailyLoop(args: RunDailyLoopArgs): Promise<RunDailyLoop
     variantsBlocked: totalBlocked,
     pendingAdsStaged: totalStaged,
     generation: nextGen,
+    coldStart: isColdStart,
   };
 }
