@@ -15,6 +15,13 @@
       "when": 1779035251153,
       "tag": "0001_chief_goblin_queen",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1779040227718,
+      "tag": "0002_kind_checks",
+      "breakpoints": true
     }
   ]
 }

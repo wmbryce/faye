@@ -10,16 +10,22 @@ export async function uploadAsset(args: {
   label?: string;
 }): Promise<Asset> {
   const kind = args.file.contentType.startsWith("video/") ? "video" : "image";
-  const { url } = await saveBuffer(args.file);
-  const [row] = await db.insert(assets).values({
-    artistId: args.artistId,
-    kind,
-    url,
-    label: args.label ?? "",
-    bytes: args.file.bytes,
-    contentType: args.file.contentType,
-  }).returning();
-  return row;
+  const { url, filename } = await saveBuffer(args.file);
+  try {
+    const [row] = await db.insert(assets).values({
+      artistId: args.artistId,
+      kind,
+      url,
+      label: args.label ?? "",
+      bytes: args.file.bytes,
+      contentType: args.file.contentType,
+    }).returning();
+    return row;
+  } catch (err) {
+    // Roll back the file write so we don't accumulate orphaned blobs on disk.
+    await deleteFile(filename).catch(() => undefined);
+    throw err;
+  }
 }
 
 export async function deleteAsset(id: string): Promise<void> {

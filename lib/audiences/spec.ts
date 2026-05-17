@@ -10,5 +10,17 @@ export const TargetingSpec = z.object({
   interests: z.array(z.string()).optional(),
   lookalikes: z.array(z.string()).optional(),
   languages: z.array(z.string()).optional(),
+}).superRefine((value, ctx) => {
+  if (
+    value.age_min !== undefined &&
+    value.age_max !== undefined &&
+    value.age_min > value.age_max
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["age_max"],
+      message: "age_max must be greater than or equal to age_min",
+    });
+  }
 });
 export type TargetingSpec = z.infer<typeof TargetingSpec>;
