@@ -25,6 +25,7 @@ TS="$(date -u +"%Y%m%dT%H%M%SZ")"
 OUT="/tmp/faye-${TS}.sql.gz"
 
 echo "Dumping DB to ${OUT}..."
+umask 077
 pg_dump --no-owner --no-privileges "${DATABASE_URL}" | gzip -9 > "${OUT}"
 
 SIZE="$(stat -c%s "${OUT}" 2>/dev/null || stat -f%z "${OUT}")"

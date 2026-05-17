@@ -1,4 +1,4 @@
-import { and, eq, gte, lte, sum, inArray } from "drizzle-orm";
+import { and, desc, eq, gte, lte, sum, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { adMetricDaily, ads, releaseMetricDaily } from "@/lib/db/schema";
 import { computeReleaseBaseline } from "@/lib/metrics/queries";
@@ -75,20 +75,20 @@ export async function compositeSeries(args: {
   const campaignAds = await db.select().from(ads).where(eq(ads.campaignId, args.campaignId));
   if (campaignAds.length === 0) return { data: [], adKeys: [] };
 
-  // pick top-N by spend within the requested window (and fetch pivot data in one query)
-  const allMetrics = await db
-    .select()
+  // 1) Top-N ads by spend WITHIN the requested window.
+  const adIds = campaignAds.map((a) => a.id);
+  const topSpend = await db
+    .select({ adId: adMetricDaily.adId, total: sum(adMetricDaily.spendCents).as("total") })
     .from(adMetricDaily)
     .where(and(
-      inArray(adMetricDaily.adId, campaignAds.map((a) => a.id)),
+      inArray(adMetricDaily.adId, adIds),
       gte(adMetricDaily.date, args.fromDate),
       lte(adMetricDaily.date, args.toDate),
-    ));
-  const spendByAd = new Map<string, number>();
-  for (const m of allMetrics) {
-    spendByAd.set(m.adId, (spendByAd.get(m.adId) ?? 0) + m.spendCents);
-  }
-  const topAdIds = [...spendByAd.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit).map(([id]) => id);
+    ))
+    .groupBy(adMetricDaily.adId)
+    .orderBy(desc(sql<number>`sum(${adMetricDaily.spendCents})`))
+    .limit(limit);
+  const topAdIds = topSpend.map((r) => r.adId);
   if (topAdIds.length === 0) return { data: [], adKeys: [] };
   const adById = new Map(campaignAds.map((a) => [a.id, a]));
 
@@ -104,9 +104,19 @@ export async function compositeSeries(args: {
   }
   const adKeys = topAdIds.map((id) => adKeyById.get(id)!);
 
+  // 2) Composite series only for those top-N IDs.
+  const metrics = await db
+    .select({ adId: adMetricDaily.adId, date: adMetricDaily.date, compositeScore: adMetricDaily.compositeScore })
+    .from(adMetricDaily)
+    .where(and(
+      inArray(adMetricDaily.adId, topAdIds),
+      gte(adMetricDaily.date, args.fromDate),
+      lte(adMetricDaily.date, args.toDate),
+    ));
+
   // pivot
   const pointsByDate = new Map<string, { [adKey: string]: number | string | null }>();
-  for (const m of allMetrics) {
+  for (const m of metrics) {
     if (!adKeyById.has(m.adId)) continue;
     const cur = pointsByDate.get(m.date) ?? { date: m.date };
     cur[adKeyById.get(m.adId)!] = m.compositeScore;

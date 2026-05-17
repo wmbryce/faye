@@ -36,7 +36,7 @@ export default async function CostsPage({ params }: { params: Promise<{ id: stri
   ]);
 
   const totalAdSpendCents = costRows.reduce((a, r) => a + r.adSpendCents, 0);
-  const totalLLMCents = costRows.reduce((a, r) => a + r.llmCostCents, 0);
+  const totalLLMCents = llmByKind.total;
   const totalCents = totalAdSpendCents + totalLLMCents;
 
   const costPerStreamCents = totalStreamsDelta > 0 ? totalCents / totalStreamsDelta : null;

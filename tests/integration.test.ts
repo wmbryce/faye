@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   artists, releases, audienceSeeds, assets, campaigns, audiences, ads,
@@ -192,7 +192,8 @@ describe("full pipeline integration", () => {
     expect(rejectedFresh.fbAdId).toBeNull();
 
     // 12. Audit log carries the full story
-    const allAudit = await db.select().from(auditLog);
+    const scopedEntityIds = [campaign.id, handAd.id, ...pendingAds.map((p) => p.id)];
+    const allAudit = await db.select().from(auditLog).where(inArray(auditLog.entityId, scopedEntityIds));
     const events = new Set(allAudit.map((e) => e.event));
     expect(events.has("draft_created")).toBe(true);
     expect(events.has("activated")).toBe(true);
