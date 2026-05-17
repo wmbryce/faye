@@ -33,7 +33,32 @@ describe("openrouter client", () => {
       appUrl: "http://x",
       fetchOpts: { retries: 0, sleepFn: () => Promise.resolve() },
     });
+    await expect(
+      c.generate({ model: "x", messages: [{ role: "user", content: "hi" }] }),
+    ).rejects.toThrow();
+  });
+
+  it("rejects empty messages array at the schema boundary", async () => {
+    const c = makeOpenRouterClient({ apiKey: "k", appUrl: "http://x" });
     await expect(c.generate({ model: "x", messages: [] })).rejects.toThrow();
+  });
+
+  it("truncates oversized error bodies in thrown error", async () => {
+    const big = "x".repeat(500);
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(big, { status: 400 })));
+    const c = makeOpenRouterClient({
+      apiKey: "k",
+      appUrl: "http://x",
+      fetchOpts: { retries: 0, sleepFn: () => Promise.resolve() },
+    });
+    try {
+      await c.generate({ model: "x", messages: [{ role: "user", content: "hi" }] });
+      throw new Error("should have thrown");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      expect(msg).toContain("[truncated]");
+      expect(msg.length).toBeLessThan(big.length);
+    }
   });
 });
 

@@ -16,18 +16,22 @@ export function makeFBRealClient(args: {
 }): FBClient {
   const opts = (extra?: Partial<FetchOpts>) => ({ service: "fb", ...args.fetchOpts, ...extra });
 
+  const authHeader = { "Authorization": `Bearer ${args.accessToken}` } as const;
+
   async function post(path: string, body: Record<string, unknown>): Promise<unknown> {
     const entries: Record<string, string> = {};
     for (const [k, v] of Object.entries(body)) {
-      entries[k] = typeof v === "string" ? v : JSON.stringify(v);
+      if (v === undefined) continue;
+      const serialized = typeof v === "string" ? v : JSON.stringify(v);
+      if (serialized === undefined) continue;
+      entries[k] = serialized;
     }
-    entries["access_token"] = args.accessToken;
     const encoded = Object.entries(entries)
       .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
       .join("&");
     const res = await fetchWithBackoff(`${GRAPH}${path}`, {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      headers: { ...authHeader, "Content-Type": "application/x-www-form-urlencoded" },
       body: encoded,
     }, opts());
     await assertOk(res, `fb ${path}`);
@@ -36,9 +40,11 @@ export function makeFBRealClient(args: {
 
   async function get(path: string, query: Record<string, string> = {}): Promise<unknown> {
     const params = new URLSearchParams(query);
-    params.set("access_token", args.accessToken);
-    const res = await fetchWithBackoff(`${GRAPH}${path}?${params.toString()}`, {
+    const qs = params.toString();
+    const url = qs ? `${GRAPH}${path}?${qs}` : `${GRAPH}${path}`;
+    const res = await fetchWithBackoff(url, {
       method: "GET",
+      headers: authHeader,
     }, opts());
     await assertOk(res, `fb ${path}`);
     return res.json();

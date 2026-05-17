@@ -39,12 +39,17 @@ export function makeSpotifyS4AClient(args: S4AOpts): SpotifyClient {
         // not a hard requirement; the Web client always returns a usable fallback.
         return DailyStreams.parse({ streams: null, listeners: null, source: "web_estimate" });
       }
-      const j = (await res.json()) as DailyResponse;
-      return DailyStreams.parse({
-        streams: j.streams ?? null,
-        listeners: j.listeners ?? null,
-        source: "s4a",
-      });
+      try {
+        const j = (await res.json()) as DailyResponse;
+        return DailyStreams.parse({
+          streams: j.streams ?? null,
+          listeners: j.listeners ?? null,
+          source: "s4a",
+        });
+      } catch {
+        // shape-drifted payload — degrade rather than crash the caller
+        return DailyStreams.parse({ streams: null, listeners: null, source: "web_estimate" });
+      }
     },
   };
 }

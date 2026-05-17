@@ -24,6 +24,7 @@ export function SecretRow(props: SecretRowProps) {
   const [value, setValue] = useState("");
   const [savingPending, startSaving] = useTransition();
   const [deletingPending, startDeleting] = useTransition();
+  const [actionError, setActionError] = useState<string | null>(null);
   const [probe, setProbe] = useState<ProbeState>({ status: "idle" });
 
   async function onTest() {
@@ -55,8 +56,13 @@ export function SecretRow(props: SecretRowProps) {
             fd.set("key", props.keyName);
             fd.set("value", value);
             startSaving(async () => {
-              await setSecretAction(fd);
-              setValue("");
+              try {
+                setActionError(null);
+                await setSecretAction(fd);
+                setValue("");
+              } catch (err) {
+                setActionError(err instanceof Error ? err.message : "Save failed");
+              }
             });
           }}
           className="flex items-end gap-2 flex-1"
@@ -86,7 +92,14 @@ export function SecretRow(props: SecretRowProps) {
           <form
             action={(fd) => {
               fd.set("key", props.keyName);
-              startDeleting(() => deleteSecretAction(fd));
+              startDeleting(async () => {
+                try {
+                  setActionError(null);
+                  await deleteSecretAction(fd);
+                } catch (err) {
+                  setActionError(err instanceof Error ? err.message : "Remove failed");
+                }
+              });
             }}
           >
             <Button type="submit" variant="ghost" size="sm" disabled={deletingPending}>
@@ -96,6 +109,9 @@ export function SecretRow(props: SecretRowProps) {
         )}
       </div>
 
+      {actionError && (
+        <p className="text-xs text-danger mt-2 break-all">✗ {actionError}</p>
+      )}
       {probe.status === "ok" && (
         <p className="text-xs text-success mt-2">✓ {probe.detail ?? "ok"}</p>
       )}

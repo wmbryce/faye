@@ -5,7 +5,7 @@ import { makeFBMockClient } from "@/lib/fb/mock";
 const noSleep = () => Promise.resolve();
 
 describe("fb real client", () => {
-  it("createCampaign posts to /act_<id>/campaigns with access_token + parses id", async () => {
+  it("createCampaign posts to /act_<id>/campaigns with Bearer token + parses id", async () => {
     const fetchSpy = vi.fn(async () => new Response(JSON.stringify({ id: "23857..." }), { status: 200 }));
     vi.stubGlobal("fetch", fetchSpy);
     const c = makeFBRealClient({ accessToken: "EAA...", fetchOpts: { sleepFn: noSleep } });
@@ -18,10 +18,33 @@ describe("fb real client", () => {
     expect(r.id).toBe("23857...");
     const [url, init] = fetchSpy.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toContain("/act_99/campaigns");
+    expect(url).not.toContain("access_token=");
+    expect((init.headers as Record<string, string>).Authorization).toBe("Bearer EAA...");
     const body = String(init.body);
-    expect(body).toContain("access_token=EAA...");
+    expect(body).not.toContain("access_token=");
     expect(body).toContain("objective=OUTCOME_TRAFFIC");
     expect(body).toContain("status=PAUSED");
+  });
+
+  it("skips undefined fields in the form body (e.g. omitted end_time)", async () => {
+    const fetchSpy = vi.fn(async () => new Response(JSON.stringify({ id: "as_2" }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchSpy);
+    const c = makeFBRealClient({ accessToken: "k", fetchOpts: { sleepFn: noSleep } });
+    await c.createAdSet({
+      adAccountId: "act_1",
+      campaignId: "c_1",
+      name: "n",
+      dailyBudgetCents: 1,
+      targetingSpec: {},
+      optimization: "LINK_CLICKS",
+      startTime: new Date("2026-06-01T00:00:00Z"),
+      // endTime intentionally omitted
+      status: "PAUSED",
+    });
+    const [, init] = fetchSpy.mock.calls[0] as unknown as [string, RequestInit];
+    const body = String(init.body);
+    expect(body).not.toMatch(/end_time=/);
+    expect(body).not.toMatch(/=undefined/);
   });
 
   it("createAdSet serializes targeting + isoformat times", async () => {
@@ -71,7 +94,7 @@ describe("fb real client", () => {
     })).rejects.toThrow(/fb \/act_1\/campaigns: 401/);
   });
 
-  it("pause/archive/setBudget hit the correct path", async () => {
+  it("pause/archive/setBudget hit the correct path with Bearer header", async () => {
     const fetchSpy = vi.fn(async () => new Response(JSON.stringify({ success: true }), { status: 200 }));
     vi.stubGlobal("fetch", fetchSpy);
     const c = makeFBRealClient({ accessToken: "k", fetchOpts: { sleepFn: noSleep } });
@@ -84,6 +107,9 @@ describe("fb real client", () => {
     expect(urls[1]).toContain("/ad_99");
     expect(urls[2]).toContain("/as_99");
     expect(String(calls[2]?.[1]?.body)).toContain("daily_budget=2000");
+    for (const [, init] of calls) {
+      expect((init.headers as Record<string, string>).Authorization).toBe("Bearer k");
+    }
   });
 });
 

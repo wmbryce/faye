@@ -44,8 +44,8 @@ export async function fetchWithBackoff(
 
       if (retriable) break;
 
-      // Fire-and-forget so the response isn't held by a logging write. Failures
-      // are swallowed to avoid taking down a real call because we couldn't audit it.
+      // Fire-and-forget: logExternalCall is itself fail-open, so no .catch needed,
+      // but using void avoids the response being held for the DB round-trip.
       void logExternalCall({
         service: opts.service,
         endpoint: url,
@@ -53,7 +53,7 @@ export async function fetchWithBackoff(
         status: res.status,
         durationMs: Date.now() - started,
         request: opts.redactRequest?.(init),
-      }).catch(() => undefined);
+      });
       return res;
     } catch (err) {
       lastErr = err;
@@ -65,8 +65,8 @@ export async function fetchWithBackoff(
     }
   }
 
-  // Errors are awaited so the audit row is durable before we throw — these are rare
-  // enough that the extra round-trip latency is irrelevant and the trail matters.
+  // Errors awaited so the audit row is durable before we throw — logger is fail-open
+  // so a DB failure here can never mask the upstream error.
   await logExternalCall({
     service: opts.service,
     endpoint: url,
@@ -79,11 +79,18 @@ export async function fetchWithBackoff(
   throw new Error(`fetchWithBackoff exhausted retries for ${url} (last status: ${lastStatus ?? "n/a"})`);
 }
 
-/** Throws a uniform `<label>: <status> <body>` error when res is non-2xx. Use after fetchWithBackoff. */
+const ASSERT_BODY_MAX = 200;
+
+/**
+ * Throws a uniform `<label>: <status> <body>` error when res is non-2xx.
+ * Body is truncated to ASSERT_BODY_MAX chars to limit accidental prompt/user-content
+ * leakage into logs while preserving enough context for debugging.
+ */
 export async function assertOk(res: Response, label: string): Promise<void> {
   if (res.ok) return;
   const text = await res.text().catch(() => "");
-  throw new Error(`${label}: ${res.status} ${text}`);
+  const trimmed = text.length > ASSERT_BODY_MAX ? `${text.slice(0, ASSERT_BODY_MAX)}…[truncated]` : text;
+  throw new Error(`${label}: ${res.status} ${trimmed}`);
 }
 
 function parseRetryAfter(v: string | null): number | null {

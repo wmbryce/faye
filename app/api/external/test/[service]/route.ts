@@ -60,8 +60,12 @@ const PROBES: Record<TestService, () => Promise<ProbeResult>> = {
     if (!adAccountId) return { ok: false, detail: "missing fb.ad_account_id" };
     const stripped = stripAct(adAccountId);
     try {
-      const url = `https://graph.facebook.com/v21.0/act_${encodeURIComponent(stripped)}?fields=name,currency&access_token=${encodeURIComponent(token)}`;
-      const res = await fetchWithBackoff(url, { method: "GET" }, { service: "fb" });
+      const url = `https://graph.facebook.com/v21.0/act_${encodeURIComponent(stripped)}?fields=name,currency`;
+      const res = await fetchWithBackoff(
+        url,
+        { method: "GET", headers: { Authorization: `Bearer ${token}` } },
+        { service: "fb" },
+      );
       await assertOk(res, `fb /act_${stripped}`);
       const j = (await res.json()) as { name?: string; currency?: string };
       return { ok: true, detail: `account=${j.name ?? "?"} currency=${j.currency ?? "?"}` };
@@ -72,7 +76,7 @@ const PROBES: Record<TestService, () => Promise<ProbeResult>> = {
 };
 
 function isTestService(s: string): s is TestService {
-  return s in PROBES;
+  return Object.hasOwn(PROBES, s);
 }
 
 export async function POST(_req: Request, ctx: { params: Promise<{ service: string }> }) {

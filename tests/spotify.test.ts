@@ -63,6 +63,15 @@ describe("spotify s4a client", () => {
     expect(r.streams).toBeNull();
   });
 
+  it("degrades to web_estimate when s4a returns malformed JSON", async () => {
+    const web = makeMockSpotifyClient();
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("not json", { status: 200 })));
+    const c = makeSpotifyS4AClient({ webClient: web, s4aToken: "tok", fetchOpts: { sleepFn: noSleep } });
+    const r = await c.getDailyStreams({ artistId: "a", date: "2026-05-17" });
+    expect(r.source).toBe("web_estimate");
+    expect(r.streams).toBeNull();
+  });
+
   it("popularity + track delegate to web client", async () => {
     const web = makeMockSpotifyClient({
       popularity: () => ({ popularity: 88, followers: 999 }),

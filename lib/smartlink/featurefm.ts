@@ -41,7 +41,8 @@ export function makeFeatureFmClient(args: {
     },
 
     async getDailyMetrics({ smartlinkId, date }) {
-      const url = `${BASE}/analytics/actionPages/${encodeURIComponent(smartlinkId)}?from=${date}&to=${date}`;
+      const safeDate = encodeURIComponent(date);
+      const url = `${BASE}/analytics/actionPages/${encodeURIComponent(smartlinkId)}?from=${safeDate}&to=${safeDate}`;
       const res = await fetchWithBackoff(url, { method: "GET", headers }, opts());
       await assertOk(res, "featurefm metrics");
       const j = (await res.json()) as MetricsResponse;
