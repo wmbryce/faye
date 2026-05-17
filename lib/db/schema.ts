@@ -87,3 +87,62 @@ export const externalCalls = pgTable("external_calls", {
 
 export type Secret = typeof secrets.$inferSelect;
 export type ExternalCall = typeof externalCalls.$inferSelect;
+
+export const campaigns = pgTable("campaigns", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  artistId: uuid("artist_id").notNull().references(() => artists.id, { onDelete: "cascade" }),
+  releaseId: uuid("release_id").notNull().references(() => releases.id, { onDelete: "cascade" }),
+  smartlinkId: text("smartlink_id"),
+  smartlinkUrl: text("smartlink_url"),
+  dailyBudgetCents: integer("daily_budget_cents").notNull(),
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date").notNull(),
+  status: text("status", { enum: ["draft", "active", "paused", "ended"] }).notNull().default("draft"),
+  fbCampaignId: text("fb_campaign_id"),
+  timezone: text("timezone").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const audiences = pgTable("audiences", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  campaignId: uuid("campaign_id").notNull().references(() => campaigns.id, { onDelete: "cascade" }),
+  seedId: uuid("seed_id").references(() => audienceSeeds.id),
+  name: text("name").notNull(),
+  fbTargetingSpec: jsonb("fb_targeting_spec").notNull(),
+  fbAdSetId: text("fb_ad_set_id"),
+  dailyBudgetCents: integer("daily_budget_cents").notNull(),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const ads = pgTable("ads", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  campaignId: uuid("campaign_id").notNull().references(() => campaigns.id, { onDelete: "cascade" }),
+  audienceId: uuid("audience_id").notNull().references(() => audiences.id, { onDelete: "cascade" }),
+  assetId: uuid("asset_id").notNull().references(() => assets.id),
+  generation: integer("generation").notNull().default(0),
+  copyHeadline: text("copy_headline").notNull(),
+  copyBody: text("copy_body").notNull(),
+  copyPrimaryText: text("copy_primary_text").notNull(),
+  fbAdId: text("fb_ad_id"),
+  status: text("status", { enum: ["draft", "pending", "published", "rejected", "paused", "killed"] }).notNull().default("draft"),
+  publishAt: timestamp("publish_at", { withTimezone: true }),
+  rejectedAt: timestamp("rejected_at", { withTimezone: true }),
+  rejectedReason: text("rejected_reason"),
+  promptHash: text("prompt_hash"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const auditLog = pgTable("audit_log", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  entityType: text("entity_type").notNull(),
+  entityId: text("entity_id").notNull(),
+  event: text("event").notNull(),
+  payload: jsonb("payload"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export type Campaign = typeof campaigns.$inferSelect;
+export type Audience = typeof audiences.$inferSelect;
+export type Ad = typeof ads.$inferSelect;
+export type AuditLogEntry = typeof auditLog.$inferSelect;
