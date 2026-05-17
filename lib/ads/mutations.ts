@@ -148,3 +148,23 @@ export async function killAdById(campaignId: string, adId: string): Promise<void
 function absoluteAssetUrl(relative: string): string {
   return `${env().APP_URL}${relative}`;
 }
+
+export async function approvePendingAd(adId: string): Promise<void> {
+  const [ad] = await db.select().from(ads).where(eq(ads.id, adId)).limit(1);
+  if (!ad) throw new Error("ad not found");
+  if (ad.status !== "pending") throw new Error(`cannot approve ad in status ${ad.status}`);
+  await db.update(ads).set({ publishAt: new Date() }).where(eq(ads.id, adId));
+  await writeAudit({ entityType: "ad", entityId: adId, event: "approved_in_app" });
+}
+
+export async function rejectPendingAd(adId: string): Promise<void> {
+  const [ad] = await db.select().from(ads).where(eq(ads.id, adId)).limit(1);
+  if (!ad) throw new Error("ad not found");
+  if (ad.status !== "pending") throw new Error(`cannot reject ad in status ${ad.status}`);
+  await db.update(ads).set({
+    status: "rejected",
+    rejectedAt: new Date(),
+    rejectedReason: "operator-in-app",
+  }).where(eq(ads.id, adId));
+  await writeAudit({ entityType: "ad", entityId: adId, event: "rejected_in_app" });
+}

@@ -4,7 +4,7 @@ import { artists, releases, audienceSeeds, assets } from "@/lib/db/schema";
 import { setSecret } from "@/lib/secrets/mutations";
 import { createCampaign } from "@/lib/campaigns/mutations";
 import { listAudiencesForCampaign } from "@/lib/campaigns/queries";
-import { createDraftAd, publishAd, pauseAdById, killAdById } from "@/lib/ads/mutations";
+import { createDraftAd, publishAd, pauseAdById, killAdById, approvePendingAd, rejectPendingAd } from "@/lib/ads/mutations";
 import { getAd, listAds } from "@/lib/ads/queries";
 import { listAuditFor } from "@/lib/audit/queries";
 
@@ -185,5 +185,62 @@ describe("listAds", () => {
     expect(await listAds({ campaignId: campaign.id })).toHaveLength(1);
     expect(await listAds({ audienceId: audience.id })).toHaveLength(1);
     expect(await listAds({ campaignId: "00000000-0000-0000-0000-000000000000" })).toHaveLength(0);
+  });
+});
+
+describe("approve/reject pending in-app", () => {
+  it("approvePendingAd updates publishAt + audit", async () => {
+    const { campaign, audience, asset } = await seedCampaign();
+    const ad = await createDraftAd({
+      campaignId: campaign.id, audienceId: audience.id, assetId: asset.id,
+      copyHeadline: "h", copyPrimaryText: "p", copyBody: "",
+    });
+    const { ads } = await import("@/lib/db/schema");
+    const { eq } = await import("drizzle-orm");
+    await db.update(ads).set({ status: "pending", publishAt: new Date(Date.now() + 60_000) }).where(eq(ads.id, ad.id));
+    const before = new Date();
+    await approvePendingAd(ad.id);
+    const [fresh] = await db.select().from(ads).where(eq(ads.id, ad.id));
+    expect(fresh.status).toBe("pending");
+    expect(fresh.publishAt && fresh.publishAt.getTime()).toBeGreaterThanOrEqual(before.getTime() - 1000);
+    const events = (await listAuditFor("ad", ad.id)).map((x) => x.event);
+    expect(events).toContain("approved_in_app");
+  });
+
+  it("approvePendingAd refuses non-pending ad", async () => {
+    const { campaign, audience, asset } = await seedCampaign();
+    const ad = await createDraftAd({
+      campaignId: campaign.id, audienceId: audience.id, assetId: asset.id,
+      copyHeadline: "h", copyPrimaryText: "p", copyBody: "",
+    });
+    // status stays "draft"
+    await expect(approvePendingAd(ad.id)).rejects.toThrow(/status draft/);
+  });
+
+  it("rejectPendingAd flips status + writes audit", async () => {
+    const { campaign, audience, asset } = await seedCampaign();
+    const ad = await createDraftAd({
+      campaignId: campaign.id, audienceId: audience.id, assetId: asset.id,
+      copyHeadline: "h", copyPrimaryText: "p", copyBody: "",
+    });
+    const { ads } = await import("@/lib/db/schema");
+    const { eq } = await import("drizzle-orm");
+    await db.update(ads).set({ status: "pending" }).where(eq(ads.id, ad.id));
+    await rejectPendingAd(ad.id);
+    const [fresh] = await db.select().from(ads).where(eq(ads.id, ad.id));
+    expect(fresh.status).toBe("rejected");
+    expect(fresh.rejectedReason).toBe("operator-in-app");
+    const events = (await listAuditFor("ad", ad.id)).map((x) => x.event);
+    expect(events).toContain("rejected_in_app");
+  });
+
+  it("rejectPendingAd refuses non-pending ad", async () => {
+    const { campaign, audience, asset } = await seedCampaign();
+    const ad = await createDraftAd({
+      campaignId: campaign.id, audienceId: audience.id, assetId: asset.id,
+      copyHeadline: "h", copyPrimaryText: "p", copyBody: "",
+    });
+    // status stays "draft"
+    await expect(rejectPendingAd(ad.id)).rejects.toThrow(/status draft/);
   });
 });

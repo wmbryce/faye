@@ -68,6 +68,9 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
                 <Button type="submit" variant="destructive" size="sm">End</Button>
               </form>
             )}
+            <Link href={`/campaigns/${campaign.id}/review`}>
+              <Button variant="ghost" size="sm">Review pending →</Button>
+            </Link>
             <Link href={`/campaigns/${campaign.id}/audit`}>
               <Button variant="ghost" size="sm">Audit log →</Button>
             </Link>
