@@ -8,3 +8,5 @@ out/
 coverage/
 *.tsbuildinfo
 .vercel
+/uploads/
+!/uploads/.gitkeep
