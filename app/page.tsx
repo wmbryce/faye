@@ -94,7 +94,7 @@ export default async function HomePage() {
                     <span className="ml-2 text-muted-foreground">— {c.releaseTitle}</span>
                   </span>
                   <span className="num text-xs text-muted-foreground shrink-0">
-                    ${(c.dailyBudgetCents / 100).toFixed(0)}/day · {c.startDate} → {c.endDate}
+                    ${(c.dailyBudgetCents / 100).toFixed(2)}/day · {c.startDate} → {c.endDate}
                   </span>
                 </Link>
               ))}
