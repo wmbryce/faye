@@ -11,7 +11,6 @@ const ALLOWED_KEYS = new Set([
   "fb.access_token",
   "fb.ad_account_id",
   "fb.page_id",
-  "featurefm.api_key",
   "spotify.client_id",
   "spotify.client_secret",
   "openrouter.api_key",

@@ -11,7 +11,6 @@ const KEYS: KeyDef[] = [
   { keyName: "fb.access_token", label: "Facebook Marketing API access token", description: "Long-lived user or system-user token with ads_management + ads_read + business_management.", testService: "fb" },
   { keyName: "fb.ad_account_id", label: "Facebook ad account ID", description: "Format: act_<digits>." },
   { keyName: "fb.page_id", label: "Default Facebook Page ID", description: "Page that ads will be attributed to." },
-  { keyName: "featurefm.api_key", label: "Feature.fm API key", description: "Used to create smartlinks + pull daily clicks/streams.", testService: "smartlink" },
   { keyName: "spotify.client_id", label: "Spotify Web API client ID" },
   { keyName: "spotify.client_secret", label: "Spotify Web API client secret", description: "Combined with client_id for client-credentials OAuth.", testService: "spotify_web" },
   { keyName: "openrouter.api_key", label: "OpenRouter API key", description: "Single endpoint for all LLM calls (Sonnet / Opus / Haiku).", testService: "llm" },
