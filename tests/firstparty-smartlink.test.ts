@@ -75,6 +75,11 @@ describe("firstparty smartlink client", () => {
     expect(m.clicks).toBe(1);
   });
 
+  it("create normalizes trailing slash on appUrl", async () => {
+    const sl = await makeFirstPartyClient({ appUrl: `${APP_URL}/` }).create(input);
+    expect(sl.shortUrl).toBe(`${APP_URL}/l/${sl.id}`);
+  });
+
   it("multiple smartlinks isolated — clicks don't bleed across", async () => {
     const c = makeFirstPartyClient({ appUrl: APP_URL });
     const sl1 = await c.create(input);

@@ -26,6 +26,7 @@ export function makeFirstPartyClient({
   appUrl,
   shortcodeFn = genShortcode,
 }: { appUrl: string; shortcodeFn?: () => string }): SmartlinkClient {
+  const baseUrl = appUrl.replace(/\/+$/, "");
   return {
     async create(input) {
       const { spotifyTrackOrAlbumUrl } = CreateSmartlinkInput.parse(input);
@@ -37,7 +38,7 @@ export function makeFirstPartyClient({
           .onConflictDoNothing()
           .returning({ id: smartlinks.id });
         if (inserted.length > 0) {
-          return { id, shortUrl: `${appUrl}/l/${id}`, longUrl: spotifyTrackOrAlbumUrl };
+          return { id, shortUrl: `${baseUrl}/l/${id}`, longUrl: spotifyTrackOrAlbumUrl };
         }
       }
       throw new Error(`smartlink: failed to generate unique shortcode after ${MAX_COLLISION_RETRIES} attempts`);
