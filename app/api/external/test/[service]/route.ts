@@ -7,7 +7,7 @@ import { stripAct } from "@/lib/fb/real";
 import { fetchWithBackoff, assertOk } from "@/lib/external/fetch";
 import { env } from "@/lib/env";
 
-type TestService = "llm" | "smartlink" | "spotify_web" | "fb";
+type TestService = "llm" | "spotify_web" | "fb";
 
 type ProbeResult = { ok: boolean; detail?: string };
 
@@ -27,12 +27,6 @@ const PROBES: Record<TestService, () => Promise<ProbeResult>> = {
     } catch (e) {
       return { ok: false, detail: e instanceof Error ? e.message : String(e) };
     }
-  },
-  smartlink: async () => {
-    const apiKey = await getSecret("featurefm.api_key");
-    if (!apiKey) return { ok: false, detail: "missing featurefm.api_key" };
-    // No idempotent read endpoint surfaced; key validity is verified on first real create.
-    return { ok: true, detail: "api key present (verified on first real call)" };
   },
   spotify_web: async () => {
     const [clientId, clientSecret] = await Promise.all([

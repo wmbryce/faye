@@ -10,7 +10,7 @@ export type SecretRowProps = {
   keyName: string;
   label: string;
   description?: string;
-  testService?: "llm" | "smartlink" | "spotify_web" | "fb";
+  testService?: "llm" | "spotify_web" | "fb";
   present: boolean;
 };
 

@@ -244,6 +244,24 @@ export const notifications = pgTable("notifications", {
 export type ConsumedRejectToken = typeof consumedRejectTokens.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
 
+export const smartlinks = pgTable("smartlinks", {
+  id: text("id").primaryKey(),
+  destinationUrl: text("destination_url").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const smartlinkClicks = pgTable("smartlink_clicks", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  smartlinkId: text("smartlink_id").notNull().references(() => smartlinks.id, { onDelete: "cascade" }),
+  clickedAt: timestamp("clicked_at", { withTimezone: true }).defaultNow().notNull(),
+  userAgent: text("user_agent"),
+}, (t) => ({
+  smartlinkClickedIdx: index("smartlink_clicks_smartlink_clicked_idx").on(t.smartlinkId, t.clickedAt.desc()),
+}));
+
+export type Smartlink = typeof smartlinks.$inferSelect;
+export type SmartlinkClick = typeof smartlinkClicks.$inferSelect;
+
 export const AD_STATUS = {
   draft: "draft",
   pending: "pending",

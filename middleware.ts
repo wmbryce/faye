@@ -10,7 +10,8 @@ export function middleware(req: NextRequest) {
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
     pathname === "/reject" ||
-    pathname.startsWith("/reject/")
+    pathname.startsWith("/reject/") ||
+    pathname.startsWith("/l/")
   ) {
     return NextResponse.next();
   }
