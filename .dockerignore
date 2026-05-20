@@ -1,0 +1,17 @@
+.git
+.github
+.next
+.worktrees
+node_modules
+coverage
+docs
+*.md
+.env
+.env.*
+!.env.example
+.DS_Store
+Dockerfile
+docker-compose.yml
+deploy/bootstrap-hetzner.sh
+uploads/*
+!uploads/.gitkeep
