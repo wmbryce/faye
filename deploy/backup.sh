@@ -1,23 +1,25 @@
 #!/usr/bin/env bash
 # Faye nightly backup. Runs on the Hetzner box via /etc/cron.d/faye.
-# Requires: pg_dump (postgres-client), b2 (Backblaze CLI authenticated as faye-backups bucket owner).
-# Set BACKUP_BUCKET / BACKUP_PREFIX env vars (defaulted below) and ensure DATABASE_URL is in /opt/faye/.env.
+# Dumps the compose-managed postgres container via `docker compose exec`.
+# Requires: b2 CLI authenticated as the faye-backups bucket owner.
+# Set BACKUP_BUCKET / BACKUP_PREFIX env vars (defaulted below).
 
 set -euo pipefail
 
+APP_DIR="${APP_DIR:-/opt/faye}"
 BUCKET="${BACKUP_BUCKET:-faye-backups}"
 PREFIX="${BACKUP_PREFIX:-db}"
 RETAIN_DAYS="${RETAIN_DAYS:-30}"
 
-if [[ -f /opt/faye/.env ]]; then
+if [[ -f "$APP_DIR/.env" ]]; then
   # shellcheck disable=SC1091
   set -o allexport
-  source /opt/faye/.env
+  source "$APP_DIR/.env"
   set +o allexport
 fi
 
-if [[ -z "${DATABASE_URL:-}" ]]; then
-  echo "DATABASE_URL not set; aborting" >&2
+if [[ -z "${POSTGRES_PASSWORD:-}" ]]; then
+  echo "POSTGRES_PASSWORD not set in $APP_DIR/.env; aborting" >&2
   exit 2
 fi
 
@@ -26,7 +28,8 @@ OUT="/tmp/faye-${TS}.sql.gz"
 
 echo "Dumping DB to ${OUT}..."
 umask 077
-pg_dump --no-owner --no-privileges "${DATABASE_URL}" | gzip -9 > "${OUT}"
+docker compose -f "$APP_DIR/docker-compose.yml" exec -T -e PGPASSWORD="${POSTGRES_PASSWORD}" postgres \
+  pg_dump --no-owner --no-privileges -U faye -d faye | gzip -9 > "${OUT}"
 
 SIZE="$(stat -c%s "${OUT}" 2>/dev/null || stat -f%z "${OUT}")"
 if [[ "${SIZE}" -lt 1024 ]]; then

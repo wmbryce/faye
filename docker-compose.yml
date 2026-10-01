@@ -1,0 +1,55 @@
+# Faye production stack. Lives on the Hetzner box at /opt/faye/docker-compose.yml.
+# Pull + restart driven by the GitHub Actions deploy workflow over SSH.
+#
+# Image is pulled from GHCR. The `web` service reads `.env` from /opt/faye/.env
+# (placed manually once on first boot).
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: faye
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: faye
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U faye -d faye"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  web:
+    image: ghcr.io/wmbryce/faye:${FAYE_IMAGE_TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      # Override DB host to point at the compose service. .env can still set everything else.
+      DATABASE_URL: postgres://faye:${POSTGRES_PASSWORD}@postgres:5432/faye
+      NODE_ENV: production
+    volumes:
+      - ./uploads:/app/uploads
+    expose:
+      - "3000"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - web
+    ports:
+      - "80:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  pg-data:
+  caddy-data:
+  caddy-config:

@@ -1,4 +1,12 @@
-faye.yourdomain.com {
-    reverse_proxy 127.0.0.1:3000
+# Faye reverse proxy. No domain yet — listen on :80, no TLS.
+# When you point a domain at this box, replace `:80` with `faye.yourdomain.com`
+# and Caddy will obtain a Let's Encrypt cert automatically.
+
+:80 {
+    reverse_proxy web:3000
     encode zstd gzip
+    log {
+        output stdout
+        format console
+    }
 }
